@@ -6,7 +6,10 @@ Group Up is a software to help exercise focused individuals connect, schedule, a
 --------------------------------------------------------
 
 Team Members:
+
 Devin Aldenderfer - Developer
+
 Roselynn Berhorst - Team Lead
+
 Gabriel Wilson - Documentation Lead
 
