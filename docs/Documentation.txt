@@ -1,0 +1,10 @@
+# Initial Implementation
+
+Completed:
+• Created project folder structure aligned to React + Node + SQLite stack
+• Implemented Express backend with working SQLite connection
+• Verified API and frontend communication
+• Repository created and first commits pushed
+
+NOTE: code utilizes Node.js and SQLite. If not already on your computer, 
+download from https://nodejs.org/ and https://www.sqlite.org/download.html
