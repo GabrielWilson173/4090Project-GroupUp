@@ -1,19 +1,15 @@
 const sqlite3 = require('sqlite3').verbose();
-const db = new sqlite3.Database('./database/clubs.db');
+const path = require('path');
 
-// Create basic table for testing
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS clubs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL
-  )`);
+// Correct path (go up two folders from /src/models)
+const dbPath = path.resolve(__dirname, '../../database/club_management.db');
 
-  // Insert initial mock data if empty
-  db.get("SELECT COUNT(*) AS count FROM clubs", (err, row) => {
-    if (row.count === 0) {
-      db.run("INSERT INTO clubs (name) VALUES ('Cycling Club'), ('Yoga in the Park')");
-    }
-  });
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('Failed to connect to database:', err.message);
+  } else {
+    console.log('Connected to SQLite database at:', dbPath);
+  }
 });
 
 module.exports = db;
