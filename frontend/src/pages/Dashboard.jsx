@@ -13,7 +13,7 @@ function Dashboard() {
     .catch(() => setUser(null));
   }, []);
 
-  if (!user) return <p>Loading user info...</p>;
+  if (!user) return <p>Please log in or register</p>;
 
   return (
     <div style={{ padding: 20 }}>

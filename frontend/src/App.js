@@ -9,11 +9,22 @@ import Clubs from "./pages/Clubs";
 function App() {
   return (
     <Router>
-      <nav style={{ padding: '10px', background: '#eee' }}>
-        <Link to="/register" style={{ marginRight: '10px' }}>Register</Link>
-        <Link to="/login">Login</Link>
+      <nav style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        padding: '10px', 
+        background: '#eee' 
+      }}>
+        <div>
         <Link to="/">Home</Link> |{" "}
-        <Link to="/clubs">Clubs</Link>
+        <Link to="/clubs">Clubs</Link> |{" "}
+        <Link to="/dashboard">Dashboard</Link>
+        </div>
+        <div>
+        <Link to="/register">Register</Link> {" "}
+        <Link to="/login">Login</Link>
+        </div>
       </nav>
 
       <Routes>
