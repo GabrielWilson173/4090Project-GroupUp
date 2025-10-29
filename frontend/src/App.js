@@ -4,7 +4,7 @@ import Register from './pages/Register';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Clubs from "./pages/Clubs";
-
+import Home from "./pages/Home";
 
 function App() {
   return (
@@ -28,7 +28,7 @@ function App() {
       </nav>
 
       <Routes>
-        <Route path="/" element={<h2>Welcome to GroupUp!</h2>} />
+        <Route path="/" element={<Home />} />
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
         <Route path="/clubs" element={<Clubs />} />
