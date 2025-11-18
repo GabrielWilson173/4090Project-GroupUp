@@ -1,19 +1,23 @@
-require('dotenv').config(); // load .env in development
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
-const clubsRoutes = require('./routes/clubsRoutes');
-const userRoutes = require('./routes/userRoutes');
+const clubsController = require('./controllers/clubsController');
+const userController = require('./controllers/userController');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Register API routes
-app.use('/api/clubs', clubsRoutes);
-app.use('/api/users', userRoutes);
+// Clubs
+app.get('/api/clubs', clubsController.getAllClubs);
 
-// Basic health check
+// Users
+app.post('/api/users/register', userController.register);
+app.post('/api/users/login', userController.login);
+app.get('/api/users/me', userController.me);
+
+// Health
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 const PORT = process.env.PORT || 5000;
