@@ -18,7 +18,7 @@ async function register(req, res) {
     }
 
     // Check for existing user
-    db.get('SELECT id FROM Users WHERE email = ?', [email], async (err, row) => {
+    db.get('SELECT user_id FROM UserAccounts WHERE email = ?', [email], async (err, row) => {
       if (err) {
         console.error('DB error on user lookup:', err);
         return res.status(500).json({ error: 'internal server error' });
@@ -31,7 +31,7 @@ async function register(req, res) {
       const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
 
       // Insert user
-      const stmt = 'INSERT INTO Users (name, email, password_hash) VALUES (?, ?, ?)';
+      const stmt = 'INSERT INTO UserAccounts (name, email, password_hash) VALUES (?, ?, ?)';
       db.run(stmt, [name, email, password_hash], function (err) {
         if (err) {
           console.error('DB error on insert user:', err);
@@ -60,7 +60,7 @@ async function login(req, res) {
       return res.status(400).json({ error: 'email and password required' });
     }
 
-    db.get('SELECT id, name, email, password_hash FROM Users WHERE email = ?', [email], async (err, row) => {
+    db.get('SELECT user_id, name, email, password_hash FROM UserAccounts WHERE email = ?', [email], async (err, row) => {
       if (err) {
         console.error('DB error on login lookup:', err);
         return res.status(500).json({ error: 'internal server error' });
@@ -96,7 +96,7 @@ async function login(req, res) {
 function me(req, res) {
   // auth middleware should attach req.user { id, email }
   if (!req.user) return res.status(401).json({ error: 'unauthorized' });
-  db.get('SELECT id, name, email, created_at FROM Users WHERE id = ?', [req.user.id], (err, row) => {
+  db.get('SELECT id, name, email, created_at FROM UserAccounts WHERE user_id = ?', [req.user.id], (err, row) => {
     if (err) {
       console.error('DB error on me:', err);
       return res.status(500).json({ error: 'internal server error' });

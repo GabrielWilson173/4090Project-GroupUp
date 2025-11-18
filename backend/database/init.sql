@@ -21,6 +21,7 @@ DROP TABLE IF EXISTS BikeRoutes;
 -- User login and registration (High cohesion allowed)
 CREATE TABLE UserAccounts (
     user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
