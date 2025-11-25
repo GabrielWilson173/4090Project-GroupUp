@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-function Login() {
+function Login({ setIsLoggedIn }) {  // Add setIsLoggedIn prop
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
   const [message, setMessage] = useState('');
@@ -25,14 +25,15 @@ function Login() {
 
         // Optional: store basic user info in localStorage
         localStorage.setItem('user', JSON.stringify({
-          user_id: data.user_id,
-          email: data.email,
-          name: data.name
+          id: data.user.id,  // Fixed: use data.user
+          email: data.user.email,
+          name: data.user.name
         }));
 
         setMessage('✅ Login successful!');
-
-        navigate('/');
+        
+        setIsLoggedIn(true);  // Update login state
+        navigate('/dashboard');  // Navigate to dashboard (lowercase)
 
       } else {
         setMessage(`❌ Error: ${data.error}`);
