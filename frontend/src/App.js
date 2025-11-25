@@ -2,7 +2,6 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import Register from './pages/Register';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
 import Clubs from "./pages/Clubs";
 import Home from "./pages/Home";
 
@@ -19,7 +18,6 @@ function App() {
         <div>
         <Link to="/">Home</Link> |{" "}
         <Link to="/clubs">Browse Clubs</Link> |{" "}
-        <Link to="/dashboard">Dashboard</Link>
         </div>
         <div>
         <Link to="/register">Register</Link> {" "}
@@ -32,7 +30,6 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
         <Route path="/clubs" element={<Clubs />} />
-        <Route path="/dashboard" element={<Dashboard />} />
       </Routes>
     </Router>
   );

@@ -11,12 +11,19 @@ app.use(express.json());
 
 // Clubs
 app.get('/api/clubs', clubsController.getAllClubs);
-app.post('/api/clubs/:clubId/join', clubsController.joinClub);
+
+const { requireAuth } = require('./middleware/authMiddleware');
+
+// Clubs (protected)
+app.post('/api/clubs/:clubId/join', requireAuth, clubsController.joinClub);
+app.post('/api/clubs/:clubId/leave', requireAuth, clubsController.leaveClub);
+
+
 
 // Users
 app.post('/api/users/register', userController.register);
 app.post('/api/users/login', userController.login);
-app.get('/api/users/me', userController.me);
+app.get('/api/users/me', requireAuth, userController.me);
 
 // Health
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));

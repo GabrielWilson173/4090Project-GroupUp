@@ -53,31 +53,67 @@ exports.fetchAllClubs = (search = null, type = null) => {
 };
 
 /**
- * Increment member count for a club
+ * Join a club
  */
-exports.joinClub = (clubId) => {
+exports.joinClub = (clubId, userId) => {
   return new Promise((resolve, reject) => {
-    const query = `
-      UPDATE ClubsBasic 
-      SET member_count = member_count + 1 
-      WHERE club_id = ?
+    const insertQuery = `
+      INSERT OR IGNORE INTO ClubMembership (user_ref, club_ref) VALUES (?, ?)
     `;
-    
-    db.run(query, [clubId], function(err) {
-      if (err) {
-        console.error("DB error joining club:", err);
-        return reject(err);
-      }
-      
-      // Return the new member count
-      db.get(
-        "SELECT member_count FROM ClubsBasic WHERE club_id = ?",
-        [clubId],
-        (err, row) => {
-          if (err) return reject(err);
-          resolve(row);
-        }
-      );
+    db.run(insertQuery, [userId, clubId], function(err) {
+      if (err) return reject(err);
+
+      // Increment member_count
+      const updateQuery = `
+        UPDATE ClubsBasic
+        SET member_count = member_count + 1
+        WHERE club_id = ?
+      `;
+      db.run(updateQuery, [clubId], function(err) {
+        if (err) return reject(err);
+
+        db.get(
+          "SELECT member_count FROM ClubsBasic WHERE club_id = ?",
+          [clubId],
+          (err, row) => {
+            if (err) return reject(err);
+            resolve(row);
+          }
+        );
+      });
+    });
+  });
+};
+
+/**
+ * Leave a club
+ */
+exports.leaveClub = (clubId, userId) => {
+  return new Promise((resolve, reject) => {
+    const deleteQuery = `
+      DELETE FROM ClubMembership WHERE user_ref = ? AND club_ref = ?
+    `;
+    db.run(deleteQuery, [userId, clubId], function(err) {
+      if (err) return reject(err);
+
+      // Decrement member_count
+      const updateQuery = `
+        UPDATE ClubsBasic
+        SET member_count = member_count - 1
+        WHERE club_id = ?
+      `;
+      db.run(updateQuery, [clubId], function(err) {
+        if (err) return reject(err);
+
+        db.get(
+          "SELECT member_count FROM ClubsBasic WHERE club_id = ?",
+          [clubId],
+          (err, row) => {
+            if (err) return reject(err);
+            resolve(row);
+          }
+        );
+      });
     });
   });
 };

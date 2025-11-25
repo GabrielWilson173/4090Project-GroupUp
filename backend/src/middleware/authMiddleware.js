@@ -19,7 +19,7 @@ function requireAuth(req, res, next) {
   try {
     const payload = jwt.verify(token, JWT_SECRET);
     // payload.sub contains user id (as used in controller)
-    req.user = { id: payload.sub, email: payload.email };
+    req.user = { userId: payload.sub, email: payload.email };
     return next();
   } catch (e) {
     return res.status(401).json({ error: 'invalid or expired token' });

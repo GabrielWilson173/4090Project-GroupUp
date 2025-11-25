@@ -84,9 +84,12 @@ CREATE TABLE ClubOwnership (
 
 CREATE TABLE ClubMembership (
     membership_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_ref INTEGER,
-    club_ref INTEGER,
-    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    user_ref INTEGER NOT NULL,
+    club_ref INTEGER NOT NULL,
+    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user FOREIGN KEY (user_ref) REFERENCES UserAccounts(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_club FOREIGN KEY (club_ref) REFERENCES ClubsBasic(club_id) ON DELETE CASCADE,
+    CONSTRAINT unique_membership UNIQUE (user_ref, club_ref)
 );
 
 CREATE TABLE ClubEvents (
@@ -154,12 +157,12 @@ INSERT INTO ClubsBasic (name, description, club_type, image_url, meetup_times, m
     ('Yoga in the Park', 'Outdoor yoga sessions', 'Wellness', 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400', 'Tuesdays 6pm-7pm, Thursdays 6pm-7pm', 18),
     ('Chess Masters', 'Weekly competitive chess', 'Games', 'https://images.unsplash.com/photo-1586165368502-1bad197a6461?w=400', 'Wednesdays 7pm-9pm', 12),
     ('Trail Runners', 'Local trail running and fitness group', 'Walking', 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=400', 'Mondays 6am-7am, Wednesdays 6am-7am, Fridays 6am-7am', 27),
-    ('Photography Collective', 'Learn and practice photography together', 'Arts', 'https://images.unsplash.com/photo-1452587925148-ce544e77e70d?w=400', 'Sundays 2pm-5pm', 15),
+    ('Photography Collective', 'Learn and practice photography together', 'Arts', 'https://images.unsplash.com/photo-1486916856992-e4db22c8df33?w=400', 'Sundays 2pm-5pm', 15),
     ('Board Game Society', 'Play strategy and social board games', 'Games', 'https://images.unsplash.com/photo-1610890716171-6b1bb98ffd09?w=400', 'Fridays 7pm-10pm', 21),
     ('Meditation Hour', 'Guided meditation and mindfulness', 'Wellness', 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400', 'Daily 7am-8am', 9),
-    ('Kayak Crew', 'Group kayaking outings on local rivers', 'Hobbies', 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400', 'Saturdays 10am-2pm', 14),
+    ('Kayak Crew', 'Group kayaking outings on local rivers', 'Hobbies', 'https://plus.unsplash.com/premium_photo-1661893427047-16f6ddc173f6?w=400', 'Saturdays 10am-2pm', 14),
     ('Garden Club', 'Community gardening and plant swaps', 'Hobbies', 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400', 'Sundays 9am-12pm', 19),
-    ('Salsa Dance Club', 'Beginner-friendly salsa dance nights', 'Arts', 'https://images.unsplash.com/photo-1504609773096-104ff2c73ba4?w=400', 'Thursdays 8pm-10pm', 25),
+    ('Salsa Dance Club', 'Beginner-friendly salsa dance nights', 'Arts', 'https://images.unsplash.com/photo-1531747056595-07f6cbbe10ad?w=400', 'Thursdays 8pm-10pm', 25),
     ('Saturday Soccer', 'Laid-back soccer games every Sunday', 'Sports', 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400', 'Sundays 4pm-6pm', 30);
 
 INSERT INTO ClubLocation (club_ref, address, city, state, zip_code, latitude, longitude) VALUES
@@ -187,3 +190,6 @@ INSERT INTO ClubKeywords (club_ref, keyword) VALUES
     (9, 'gardening'), (9, 'plants'),
     (10, 'dance'), (10, 'salsa'),
     (11, 'soccer'), (11, 'sports');
+
+INSERT INTO UserAccounts (name, email, password_hash) VALUES
+('Dummy User', 'dummy@example.com', '$2a$10$u/mdSyxRbv.ba9oAsdBxbOwhRJZgGLS6FaqkbaaXBTswcoqUvxmky');
