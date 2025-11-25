@@ -5,10 +5,13 @@ const path = require('path');
 const dbPath = path.join(__dirname, '../database/club_management.db');
 const initSQL = path.join(__dirname, '../database/init.sql');
 
-// Create database file if missing
-if (!fs.existsSync(dbPath)) {
-    console.log("Creating new database file...");
+// Delete existing database file to start fresh
+if (fs.existsSync(dbPath)) {
+    console.log("Deleting existing database...");
+    fs.unlinkSync(dbPath);
 }
+
+console.log("Creating new database file...");
 
 // Open database
 const db = new sqlite3.Database(dbPath, (err) => {

@@ -11,6 +11,7 @@ app.use(express.json());
 
 // Clubs
 app.get('/api/clubs', clubsController.getAllClubs);
+app.post('/api/clubs/:clubId/join', clubsController.joinClub);
 
 // Users
 app.post('/api/users/register', userController.register);

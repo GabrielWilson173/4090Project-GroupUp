@@ -26,7 +26,6 @@ async function register(req, res) {
       if (row) {
         return res.status(409).json({ error: 'email already registered' });
       }
-
       // Hash password
       const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
 

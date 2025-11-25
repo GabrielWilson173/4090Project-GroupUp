@@ -18,7 +18,7 @@ function App() {
       }}>
         <div>
         <Link to="/">Home</Link> |{" "}
-        <Link to="/clubs">Clubs</Link> |{" "}
+        <Link to="/clubs">Browse Clubs</Link> |{" "}
         <Link to="/dashboard">Dashboard</Link>
         </div>
         <div>
