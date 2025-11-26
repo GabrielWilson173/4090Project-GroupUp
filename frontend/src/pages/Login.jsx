@@ -20,20 +20,18 @@ function Login({ setIsLoggedIn }) {  // Add setIsLoggedIn prop
       const data = await res.json();
 
       if (res.ok && data.token) {
-        // Save token in localStorage for authenticated requests
-        localStorage.setItem('token', data.token);
+        // Save token in sessionStorage for authenticated requests
+        sessionStorage.setItem('token', data.token);
 
-        // Optional: store basic user info in localStorage
-        localStorage.setItem('user', JSON.stringify({
-          id: data.user.id,  // Fixed: use data.user
+        // Optional: store basic user info in sessionStorage
+        sessionStorage.setItem('user', JSON.stringify({
+          id: data.user.id,
           email: data.user.email,
           name: data.user.name
         }));
-
-        setMessage('✅ Login successful!');
         
         setIsLoggedIn(true);  // Update login state
-        navigate('/dashboard');  // Navigate to dashboard (lowercase)
+        navigate('/dashboard');  // Navigate to dashboard
 
       } else {
         setMessage(`❌ Error: ${data.error}`);

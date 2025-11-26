@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import Toast from '../components/toast';
+
+
 
 function Organizer() {
   const [myClubs, setMyClubs] = useState([]);
@@ -6,7 +9,8 @@ function Organizer() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedClub, setSelectedClub] = useState(null);
-  
+  const [toast, setToast] = useState(null);
+
   // Form state for creating a club
   const [clubForm, setClubForm] = useState({
     name: '',
@@ -84,15 +88,25 @@ function Organizer() {
     setEditMeetupDays(editMeetupDays.filter((_, i) => i !== index));
   };
 
+  const formatTime12Hour = (timeStr) => {
+    if (!timeStr) return '';
+    const [hourStr, minuteStr] = timeStr.split(':');
+    let hour = parseInt(hourStr, 10);
+    const minute = parseInt(minuteStr, 10);
+    const ampm = hour >= 12 ? 'pm' : 'am';
+    hour = hour % 12 || 12; // convert 0 → 12, 13 → 1, etc.
+    return `${hour}${minute !== 0 ? `:${minuteStr}` : ''}${ampm}`;
+  };
+
   const formatMeetupTimes = () => {
     return meetupDays
-      .map(m => `${m.day}s ${m.startTime}-${m.endTime}`)
+      .map(m => `${m.day}s ${formatTime12Hour(m.startTime)}-${formatTime12Hour(m.endTime)}`)
       .join(', ');
   };
 
   const formatEditMeetupTimes = () => {
     return editMeetupDays
-      .map(m => `${m.day}s ${m.startTime}-${m.endTime}`)
+      .map(m => `${m.day}s ${formatTime12Hour(m.startTime)}-${formatTime12Hour(m.endTime)}`)
       .join(', ');
   };
 
@@ -103,10 +117,33 @@ function Organizer() {
       const parts = dayStr.split(' ');
       const day = parts[0].replace('s', ''); // Remove trailing 's'
       const times = parts[1].split('-');
+      
+      // Convert 12-hour format back to 24-hour format for time inputs
+      const convert12to24 = (time12) => {
+        const isPM = time12.toLowerCase().includes('pm');
+        const isAM = time12.toLowerCase().includes('am');
+        let timeNum = time12.replace(/am|pm/gi, '');
+        
+        // Check if it has minutes
+        let hour, minute;
+        if (timeNum.includes(':')) {
+          [hour, minute] = timeNum.split(':').map(n => parseInt(n, 10));
+        } else {
+          hour = parseInt(timeNum, 10);
+          minute = 0;
+        }
+        
+        // Convert to 24-hour
+        if (isPM && hour !== 12) hour += 12;
+        if (isAM && hour === 12) hour = 0;
+        
+        return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      };
+      
       return {
         day: day,
-        startTime: times[0],
-        endTime: times[1]
+        startTime: convert12to24(times[0]),
+        endTime: convert12to24(times[1])
       };
     });
   };
@@ -130,7 +167,7 @@ function Organizer() {
     // Parse address
     const addressParts = clubForm.address.split(',').map(s => s.trim());
     if (addressParts.length !== 3) {
-      alert('Please enter address in format: Street Address, City, State ZIP');
+      setToast({ message: 'Please enter address in format: Street Address, City, State ZIP', type: 'error' });
       return;
     }
 
@@ -167,7 +204,7 @@ function Organizer() {
 
       const data = await response.json();
       if (data.success) {
-        alert('Club created successfully!');
+        setToast({ message: 'Club created successfully!', type: 'success' });
         setShowCreateModal(false);
         setClubForm({
           name: '',
@@ -183,11 +220,11 @@ function Organizer() {
         setMeetupDays([]);
         fetchMyClubs(); // Refresh the list
       } else {
-        alert(`Failed to create club: ${data.error}`);
+        setToast({ message: 'Failed to delete club', type: 'error' });
       }
     } catch (error) {
       console.error('Failed to create club:', error);
-      alert('Failed to create club. See console for details.');
+      setToast({ message: 'Failed to delete club. See consol for details', type: 'error' });
     }
   };
 
@@ -197,7 +234,7 @@ function Organizer() {
     // Parse address
     const addressParts = editForm.address.split(',').map(s => s.trim());
     if (addressParts.length !== 3) {
-      alert('Please enter address in format: Street Address, City, State ZIP');
+      setToast({ message: 'Please enter address in format: Street Address, City, State ZIP', type: 'error' });
       return;
     }
 
@@ -234,7 +271,7 @@ function Organizer() {
 
       const data = await response.json();
       if (data.success) {
-        alert('Club updated successfully!');
+        setToast({ message: 'Club updated successfully!', type: 'success' });
         setShowEditModal(false);
         setEditForm({
           name: '',
@@ -248,11 +285,43 @@ function Organizer() {
         setSelectedClub(null);
         fetchMyClubs(); // Refresh the list
       } else {
-        alert(`Failed to update club: ${data.error}`);
+        setToast({ message: 'Failed to update club', type: 'error' });
+        
       }
     } catch (error) {
       console.error('Failed to update club:', error);
-      alert('Failed to update club. See console for details.');
+      setToast({ message: 'Failed to update club. See consol for details.', type: 'error' });
+
+    }
+  };
+    const handleDeleteClub = async (clubId) => {
+    if (!window.confirm('Are you sure you want to delete this club? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/organizer/delete-club/${clubId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setToast({ message: 'Club deleted successfully!', type: 'success' });
+
+        setSelectedClub(null);
+        fetchMyClubs(); // Refresh the list
+      } else {
+        setToast({ message: 'Failed to delete club', type: 'error' });
+
+      }
+    } catch (error) {
+      console.error('Failed to delete club:', error);
+      setToast({ message: 'Failed to delete club. See consol for details', type: 'error' });
+
     }
   };
 
@@ -746,7 +815,7 @@ function Organizer() {
         </div>
       )}
 
-      {/* CLUB DETAILS MODAL */}
+{/* CLUB DETAILS MODAL */}
       {selectedClub && !showEditModal && (
         <div
           style={{
@@ -792,6 +861,25 @@ function Organizer() {
               }}
             >
               Edit Info
+            </button>
+
+            {/* Delete button - ADD THIS RIGHT HERE */}
+            <button
+              onClick={() => handleDeleteClub(selectedClub.id)}
+              style={{
+                position: 'absolute',
+                top: '55px',
+                right: '15px',
+                padding: '8px 16px',
+                background: '#dc3545',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+              }}
+            >
+              Delete Club
             </button>
 
             <h2>{selectedClub.name}</h2>
@@ -840,6 +928,14 @@ function Organizer() {
             </button>
           </div>
         </div>
+      )}
+      
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );

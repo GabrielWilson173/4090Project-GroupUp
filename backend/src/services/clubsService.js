@@ -2,6 +2,7 @@ const db = require("../models/db");
 
 /**
  * Fetch clubs with optional filters (search + type)
+ * Includes organizer_id from ClubOwnership
  */
 exports.fetchAllClubs = (search = null, type = null) => {
   return new Promise((resolve, reject) => {
@@ -19,9 +20,11 @@ exports.fetchAllClubs = (search = null, type = null) => {
         cl.state,
         cl.zip_code,
         cl.latitude,
-        cl.longitude
+        cl.longitude,
+        co.user_ref AS organizer_id
       FROM ClubsBasic cb
       LEFT JOIN ClubLocation cl ON cb.club_id = cl.club_ref
+      LEFT JOIN ClubOwnership co ON cb.club_id = co.club_ref
     `;
     
     let conditions = [];
@@ -46,8 +49,22 @@ exports.fetchAllClubs = (search = null, type = null) => {
         console.error("DB error fetching filtered clubs:", err);
         return reject(err);
       }
-      
       resolve(rows || []);
+    });
+  });
+};
+
+/**
+ * Check if a user is the organizer of a club
+ */
+exports.isOrganizer = (clubId, userId) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT 1 FROM ClubOwnership WHERE club_ref = ? AND user_ref = ?
+    `;
+    db.get(query, [clubId, userId], (err, row) => {
+      if (err) return reject(err);
+      resolve(!!row); // true if organizer, false otherwise
     });
   });
 };
@@ -63,15 +80,27 @@ exports.joinClub = (clubId, userId) => {
     db.run(insertQuery, [userId, clubId], function(err) {
       if (err) return reject(err);
 
-      // Increment member_count
-      const updateQuery = `
-        UPDATE ClubsBasic
-        SET member_count = member_count + 1
-        WHERE club_id = ?
-      `;
-      db.run(updateQuery, [clubId], function(err) {
-        if (err) return reject(err);
+      // Increment member_count only if a new row was inserted
+      if (this.changes > 0) {
+        const updateQuery = `
+          UPDATE ClubsBasic
+          SET member_count = member_count + 1
+          WHERE club_id = ?
+        `;
+        db.run(updateQuery, [clubId], function(err) {
+          if (err) return reject(err);
 
+          db.get(
+            "SELECT member_count FROM ClubsBasic WHERE club_id = ?",
+            [clubId],
+            (err, row) => {
+              if (err) return reject(err);
+              resolve(row);
+            }
+          );
+        });
+      } else {
+        // Already a member, just return current count
         db.get(
           "SELECT member_count FROM ClubsBasic WHERE club_id = ?",
           [clubId],
@@ -80,7 +109,7 @@ exports.joinClub = (clubId, userId) => {
             resolve(row);
           }
         );
-      });
+      }
     });
   });
 };
@@ -96,15 +125,27 @@ exports.leaveClub = (clubId, userId) => {
     db.run(deleteQuery, [userId, clubId], function(err) {
       if (err) return reject(err);
 
-      // Decrement member_count
-      const updateQuery = `
-        UPDATE ClubsBasic
-        SET member_count = member_count - 1
-        WHERE club_id = ?
-      `;
-      db.run(updateQuery, [clubId], function(err) {
-        if (err) return reject(err);
+      if (this.changes > 0) {
+        // Decrement member_count only if a row was deleted
+        const updateQuery = `
+          UPDATE ClubsBasic
+          SET member_count = member_count - 1
+          WHERE club_id = ?
+        `;
+        db.run(updateQuery, [clubId], function(err) {
+          if (err) return reject(err);
 
+          db.get(
+            "SELECT member_count FROM ClubsBasic WHERE club_id = ?",
+            [clubId],
+            (err, row) => {
+              if (err) return reject(err);
+              resolve(row);
+            }
+          );
+        });
+      } else {
+        // Not a member, just return current count
         db.get(
           "SELECT member_count FROM ClubsBasic WHERE club_id = ?",
           [clubId],
@@ -113,7 +154,7 @@ exports.leaveClub = (clubId, userId) => {
             resolve(row);
           }
         );
-      });
+      }
     });
   });
 };

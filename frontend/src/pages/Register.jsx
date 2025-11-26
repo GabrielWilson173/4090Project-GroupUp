@@ -28,7 +28,6 @@ function Register({ setIsLoggedIn }) {  // Add setIsLoggedIn prop
       }
 
       if (res.ok) {
-        setMessage(`✅ Registered successfully! Logging you in...`);
         
         // Auto-login after registration
         try {
@@ -41,11 +40,11 @@ function Register({ setIsLoggedIn }) {  // Add setIsLoggedIn prop
           const loginData = await loginRes.json();
 
           if (loginRes.ok && loginData.token) {
-            // Save token
-            localStorage.setItem('token', loginData.token);
+            // Save token in sessionStorage
+            sessionStorage.setItem('token', loginData.token);
             
-            // Save user info
-            localStorage.setItem('user', JSON.stringify({
+            // Save user info in sessionStorage
+            sessionStorage.setItem('user', JSON.stringify({
               id: loginData.user.id,
               email: loginData.user.email,
               name: loginData.user.name
@@ -56,7 +55,6 @@ function Register({ setIsLoggedIn }) {  // Add setIsLoggedIn prop
           }
         } catch (loginErr) {
           console.error('Auto-login failed:', loginErr);
-          setMessage('✅ Registered! Please log in.');
           setTimeout(() => navigate('/login'), 2000);
         }
         

@@ -12,9 +12,16 @@ async function registerUser({ name, email, password }) {
   }
 
   return new Promise((resolve, reject) => {
+
     db.get('SELECT user_id FROM UserAccounts WHERE email = ?', [email], async (err, row) => {
-      if (err) return reject({ status: 500, message: 'DB error on user lookup', err });
-      if (row) return reject({ status: 409, message: 'email already registered' });
+      if (err) {
+        console.error("[registerUser] DB error on lookup:", err);
+        return reject({ status: 500, message: 'DB error on user lookup' });
+      }
+      if (row) {
+        console.warn("[registerUser] email already registered:", email);
+        return reject({ status: 409, message: 'email already registered' });
+      }
 
       const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
 
@@ -22,8 +29,27 @@ async function registerUser({ name, email, password }) {
         'INSERT INTO UserAccounts (name, email, password_hash) VALUES (?, ?, ?)',
         [name, email, password_hash],
         function (err) {
-          if (err) return reject({ status: 500, message: 'DB error inserting user', err });
-          resolve({ id: this.lastID, name, email });
+          if (err) {
+            console.error("[registerUser] DB error inserting user:", err);
+            return reject({ status: 500, message: 'DB error inserting user' });
+          }
+
+          const user_id = this.lastID;
+
+          const token = jwt.sign(
+            { userId: user_id, email },
+            JWT_SECRET,
+            { expiresIn: JWT_EXPIRES_IN }
+          );
+
+          resolve({
+            token,
+            user: {
+              id: user_id,
+              name,
+              email
+            }
+          });
         }
       );
     });
@@ -36,43 +62,83 @@ async function loginUser({ email, password }) {
   }
 
   return new Promise((resolve, reject) => {
-    db.get('SELECT user_id, name, email, password_hash FROM UserAccounts WHERE email = ?', [email], async (err, row) => {
-      if (err) return reject({ status: 500, message: 'DB error on login lookup', err });
-      if (!row) return reject({ status: 401, message: 'invalid credentials' });
 
-      const match = await bcrypt.compare(password, row.password_hash);
-      if (!match) return reject({ status: 401, message: 'invalid credentials' });
+    db.get(
+      'SELECT user_id, name, email, password_hash FROM UserAccounts WHERE email = ?',
+      [email],
+      async (err, row) => {
+        if (err) {
+          console.error("[loginUser] DB error on lookup:", err);
+          return reject({ status: 500, message: 'DB error on login lookup' });
+        }
+        if (!row) {
+          console.warn("[loginUser] no user found for email:", email);
+          return reject({ status: 401, message: 'invalid credentials' });
+        }
 
-      const payload = { sub: row.user_id, email: row.email };
-      const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+        const match = await bcrypt.compare(password, row.password_hash);
 
-      resolve({
-        token,
-        user: { id: row.user_id, name: row.name, email: row.email }
-      });
-    });
+        if (!match) {
+          console.warn("[loginUser] invalid password for email:", email);
+          return reject({ status: 401, message: 'invalid credentials' });
+        }
+
+        const payload = { userId: row.user_id, email: row.email };
+        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+        resolve({
+          token,
+          user: {
+            id: row.user_id,
+            name: row.name,
+            email: row.email
+          }
+        });
+      }
+    );
   });
 }
 
 async function getCurrentUser(userId) {
   return new Promise((resolve, reject) => {
-    db.get('SELECT user_id, name, email, created_at FROM UserAccounts WHERE user_id = ?', [userId], (err, row) => {
-      if (err) return reject({ status: 500, message: 'DB error fetching user', err });
-      if (!row) return reject({ status: 404, message: 'user not found' });
 
-      db.all('SELECT club_ref FROM ClubMembership WHERE user_ref = ?', [userId], (err, clubs) => {
-        if (err) return reject({ status: 500, message: 'DB error fetching memberships', err });
+    db.get(
+      'SELECT user_id, name, email, created_at FROM UserAccounts WHERE user_id = ?',
+      [userId],
+      (err, row) => {
+        if (err) {
+          console.error("[getCurrentUser] DB error:", err);
+          return reject({ status: 500, message: 'DB error fetching user' });
+        }
+        if (!row) {
+          console.warn("[getCurrentUser] no row found for userId:", userId);
+          return reject({ status: 404, message: 'User not found' });
+        }
 
-        const joined_clubs = clubs.map(r => r.club_ref);
-        resolve({
-          id: row.user_id,
-          name: row.name,
-          email: row.email,
-          created_at: row.created_at,
-          joined_clubs
-        });
-      });
-    });
+        db.all(
+          'SELECT club_ref FROM ClubMembership WHERE user_ref = ?',
+          [userId],
+          (err, clubs) => {
+            if (err) {
+              console.error("[getCurrentUser] DB error fetching memberships:", err);
+              return reject({ status: 500, message: 'DB error fetching memberships' });
+            }
+
+            const joined_clubs = Array.isArray(clubs)
+              ? clubs.map(r => r.club_ref)
+              : [];
+
+            resolve({
+              id: row.user_id,
+              name: row.name,
+              email: row.email,
+              created_at: row.created_at,
+              joined_clubs
+            });
+          }
+        );
+      }
+    );
   });
 }
 

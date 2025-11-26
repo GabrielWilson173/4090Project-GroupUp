@@ -8,13 +8,25 @@ import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Organizer from "./pages/Organizer";
 
-function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Check if user is logged in on mount
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return !!sessionStorage.getItem('token');
+  });
+
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    setIsLoggedIn(!!token);
+    // Clear session only on initial mount (page load from server restart)
+    // This checks if the page was loaded fresh vs refreshed
+    const navigationEntries = performance.getEntriesByType('navigation');
+    if (navigationEntries.length > 0 && navigationEntries[0].type === 'navigate') {
+      // Only clear if it's a fresh navigation (not a reload)
+      if (!sessionStorage.getItem('pageReloaded')) {
+        sessionStorage.clear();
+        setIsLoggedIn(false);
+      }
+    }
+    // Set flag that page has been loaded
+    sessionStorage.setItem('pageReloaded', 'true');
   }, []);
 
   const handleLogout = () => {

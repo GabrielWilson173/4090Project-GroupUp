@@ -158,7 +158,20 @@ exports.createNewClub = (userId, clubData) => {
  */
 exports.updateClub = (userId, clubId, clubData) => {
   return new Promise((resolve, reject) => {
-    const { name, address, city, state, zip_code, type, description, meetup_times, image_url } = clubData;
+    const {
+      name,
+      address,
+      city,
+      state,
+      zip_code,
+      type,
+      description,
+      meetup_times,
+      image_url
+    } = clubData;
+
+    const normalizedMeetupTimes =
+    meetup_times && meetup_times.trim() !== '' ? meetup_times : undefined;
 
     // Validate required fields
     if (!name || !address || !city || !state || !zip_code || !type || !description) {
@@ -184,9 +197,21 @@ exports.updateClub = (userId, clubId, clubData) => {
           // Build update query for ClubsBasic
           let updateClubQuery = `
             UPDATE ClubsBasic
-            SET name = ?, description = ?, club_type = ?, meetup_times = ?
+            SET name = ?, description = ?, club_type = ?
           `;
-          let clubParams = [name, description, type, meetup_times || null];
+          let clubParams = [name, description, type];
+
+          // Normalize meetup_times: treat empty string as "no update"
+          let normalizedMeetupTimes = null;
+          if (meetup_times && meetup_times.trim() !== '') {
+            normalizedMeetupTimes = meetup_times;
+          }
+
+          // Only update meetup_times if provided
+          if (normalizedMeetupTimes !== null) {
+            updateClubQuery += ', meetup_times = ?';
+            clubParams.push(normalizedMeetupTimes);
+          }
 
           // Only update image if a new one was uploaded
           if (image_url) {
@@ -200,7 +225,6 @@ exports.updateClub = (userId, clubId, clubData) => {
           db.run(updateClubQuery, clubParams, function (err) {
             if (err) {
               db.run('ROLLBACK');
-              console.error('DB error updating club:', err);
               return reject({ status: 500, message: 'DB error updating club', err });
             }
 
@@ -217,7 +241,6 @@ exports.updateClub = (userId, clubId, clubData) => {
               function (err) {
                 if (err) {
                   db.run('ROLLBACK');
-                  console.error('DB error updating location:', err);
                   return reject({ status: 500, message: 'DB error updating club location', err });
                 }
 
@@ -258,6 +281,81 @@ exports.updateClub = (userId, clubId, clubData) => {
                 });
               }
             );
+          });
+        });
+      }
+    );
+  });
+};
+
+/**
+ * Delete a club (only if user is owner)
+ */
+exports.deleteClub = (userId, clubId) => {
+  return new Promise((resolve, reject) => {
+    // First verify the user owns this club
+    db.get(
+      'SELECT * FROM ClubOwnership WHERE club_ref = ? AND user_ref = ?',
+      [clubId, userId],
+      (err, ownership) => {
+        if (err) {
+          return reject({ status: 500, message: 'DB error checking ownership', err });
+        }
+        if (!ownership) {
+          return reject({ status: 403, message: 'You do not own this club' });
+        }
+
+        // Start transaction to delete all related records
+        db.serialize(() => {
+          db.run('BEGIN TRANSACTION');
+
+          // Delete from ClubMembership
+          db.run('DELETE FROM ClubMembership WHERE club_ref = ?', [clubId], (err) => {
+            if (err) {
+              db.run('ROLLBACK');
+              return reject({ status: 500, message: 'DB error deleting memberships', err });
+            }
+
+            // Delete from ClubOwnership
+            db.run('DELETE FROM ClubOwnership WHERE club_ref = ?', [clubId], (err) => {
+              if (err) {
+                db.run('ROLLBACK');
+                return reject({ status: 500, message: 'DB error deleting ownership', err });
+              }
+
+              // Delete from ClubLocation
+              db.run('DELETE FROM ClubLocation WHERE club_ref = ?', [clubId], (err) => {
+                if (err) {
+                  db.run('ROLLBACK');
+                  return reject({ status: 500, message: 'DB error deleting location', err });
+                }
+
+                // Delete from ClubKeywords
+                db.run('DELETE FROM ClubKeywords WHERE club_ref = ?', [clubId], (err) => {
+                  if (err) {
+                    db.run('ROLLBACK');
+                    return reject({ status: 500, message: 'DB error deleting keywords', err });
+                  }
+
+                  // Finally delete from ClubsBasic
+                  db.run('DELETE FROM ClubsBasic WHERE club_id = ?', [clubId], (err) => {
+                    if (err) {
+                      db.run('ROLLBACK');
+                      return reject({ status: 500, message: 'DB error deleting club', err });
+                    }
+
+                    // Commit transaction
+                    db.run('COMMIT', (err) => {
+                      if (err) {
+                        db.run('ROLLBACK');
+                        return reject({ status: 500, message: 'DB error committing transaction', err });
+                      }
+                      resolve({ success: true });
+                    });
+                  });
+                });
+              });
+            });
           });
         });
       }

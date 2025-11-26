@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from "react";
+import Toast from '../components/toast';
 
 function Clubs() {
   const [clubs, setClubs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState(null);
+  const storedUser = JSON.parse(sessionStorage.getItem("user"));
+  const currentUserId = storedUser ? storedUser.id : null;
 
   // Popup
   const [selectedClub, setselectedClub] = useState(null);
@@ -19,8 +23,7 @@ function Clubs() {
   useEffect(() => {
     async function fetchClubs() {
       try {
-        console.log("Token:", localStorage.getItem("token"));
-        const token = localStorage.getItem("token");
+        const token = sessionStorage.getItem("token");
         
         const [clubsRes, userRes] = await Promise.all([
           fetch("http://localhost:5000/api/clubs"),
@@ -134,9 +137,17 @@ function Clubs() {
               boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
             }}
           >
+            
             {/* Club Image - MOVED TO TOP */}
+            
             <img
-              src={club.image_url || "https://via.placeholder.com/250x150"}
+              src={
+                club.image_url
+                  ? club.image_url.startsWith("http")
+                    ? club.image_url
+                    : `http://localhost:5000${club.image_url}`
+                  : "https://via.placeholder.com/250x150"
+              }
               alt={club.name}
               style={{
                 width: "100%",
@@ -146,6 +157,7 @@ function Clubs() {
                 marginBottom: "10px",
               }}
             />
+
 
             {/* Club clickable name */}
             <h3
@@ -207,7 +219,11 @@ function Clubs() {
             {/* Club Image */}
             <img
               src={
-                selectedClub.image_url || "https://via.placeholder.com/450x250"
+                selectedClub.image_url
+                  ? selectedClub.image_url.startsWith("http")
+                    ? selectedClub.image_url
+                    : `http://localhost:5000${selectedClub.image_url}`
+                  : "https://via.placeholder.com/450x250"
               }
               alt={selectedClub.name}
               style={{
@@ -218,6 +234,7 @@ function Clubs() {
                 marginBottom: "15px",
               }}
             />
+
 
             <p style={{ marginBottom: "10px" }}>
               <strong>Type:</strong> {selectedClub.type || "Not specified"}
@@ -245,73 +262,83 @@ function Clubs() {
               <strong>Members:</strong> {selectedClub.member_count || 0}
             </p>
 
-            <button
-              style={{
-                padding: "10px 20px",
-                background: joinedClubs.includes(selectedClub.id) ? "#dc3545" : "#28a745",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                width: "100%",
-              }}
-              onClick={async () => {
-                const token = localStorage.getItem("token");
-                if (!token) {
-                  alert("You must be logged in to join a club.");
-                  return;
-                }
-
-                const action = joinedClubs.includes(selectedClub.id) ? "leave" : "join";
-                try {
-                  const response = await fetch(
-                    `http://localhost:5000/api/clubs/${selectedClub.id}/${action}`,
-                    {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`, // <--- send JWT here
-                      },
-                    }
-                  );
-                  const data = await response.json();
-                  if (data.success) {
-                    // Update selected club's member count locally
-                    setselectedClub({
-                      ...selectedClub,
-                      member_count: data.member_count,
-                    });
-                    // Update main clubs list
-                    setClubs((prevClubs) =>
-                      prevClubs.map((club) =>
-                        club.id === selectedClub.id
-                          ? { ...club, member_count: data.member_count }
-                          : club
-                      )
-                    );
-
-                    // Update joinedClubs state
-                    if (action === "join") {
-                      setJoinedClubs((prev) => [...prev, selectedClub.id]);
-                    } else {
-                      setJoinedClubs((prev) =>
-                        prev.filter((id) => id !== selectedClub.id)
-                      );
-                    }
-                  } else {
-                    alert(`Failed to ${action} club: ${data.error || "Unknown error"}`);
+            {/* Only show the button if the current user is NOT the organizer */}
+            {selectedClub.organizer_id !== currentUserId && (
+              <button
+                style={{
+                  padding: "10px 20px",
+                  background: joinedClubs.includes(selectedClub.id) ? "#dc3545" : "#28a745",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  width: "100%",
+                }}
+                onClick={async () => {
+                  const token = sessionStorage.getItem("token");
+                  if (!token) {
+                    setToast({ message: 'You must be logged in to join a club.', type: 'error' });
+                    return;
                   }
-                } catch (error) {
-                  console.error(`Failed to ${action} club:`, error);
-                  alert(`Failed to ${action} club. See console for details.`);
-                }
-              }}
-            >
-              {joinedClubs.includes(selectedClub.id) ? "Leave Club" : "Join Club"}
-            </button>
+
+                  const action = joinedClubs.includes(selectedClub.id) ? "leave" : "join";
+                  try {
+                    const response = await fetch(
+                      `http://localhost:5000/api/clubs/${selectedClub.id}/${action}`,
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${token}`, // <--- send JWT here
+                        },
+                      }
+                    );
+                    const data = await response.json();
+                    if (data.success) {
+                      // Update selected club's member count locally
+                      setselectedClub({
+                        ...selectedClub,
+                        member_count: data.member_count,
+                      });
+                      // Update main clubs list
+                      setClubs((prevClubs) =>
+                        prevClubs.map((club) =>
+                          club.id === selectedClub.id
+                            ? { ...club, member_count: data.member_count }
+                            : club
+                        )
+                      );
+
+                      // Update joinedClubs state
+                      if (action === "join") {
+                        setJoinedClubs((prev) => [...prev, selectedClub.id]);
+                      } else {
+                        setJoinedClubs((prev) =>
+                          prev.filter((id) => id !== selectedClub.id)
+                        );
+                      }
+                    } else {
+                      alert(`Failed to ${action} club: ${data.error || "Unknown error"}`);
+                    }
+                  } catch (error) {
+                    console.error(`Failed to ${action} club:`, error);
+                    alert(`Failed to ${action} club. See console for details.`);
+                  }
+                }}
+              >
+                {joinedClubs.includes(selectedClub.id) ? "Leave Club" : "Join Club"}
+              </button>
+            )}
 
           </div>
         </div>
+      )}
+    {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );

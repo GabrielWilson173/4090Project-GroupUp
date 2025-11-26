@@ -21,7 +21,10 @@ async function login(req, res) {
 }
 
 async function me(req, res) {
-  if (!req.user) return res.status(401).json({ error: 'unauthorized' });
+  if (!req.user) {
+    console.log("No user decoded from token");
+    return res.status(401).json({ error: 'unauthorized' });
+  }
 
   try {
     const user = await userService.getCurrentUser(req.user.userId);
@@ -31,5 +34,6 @@ async function me(req, res) {
     res.status(err.status || 500).json({ error: err.message || 'internal server error' });
   }
 }
+
 
 module.exports = { register, login, me };
