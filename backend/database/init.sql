@@ -74,8 +74,8 @@ CREATE TABLE ClubLocation (
 
 CREATE TABLE ClubOwnership (
     club_ref INTEGER,
-    owner_user_ref INTEGER,
-    ownership_created DATETIME DEFAULT CURRENT_TIMESTAMP
+    user_ref INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 ----------------------------------------------------------

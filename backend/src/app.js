@@ -1,24 +1,61 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
 
 const clubsController = require('./controllers/clubsController');
 const userController = require('./controllers/userController');
+const organizerController = require('./controllers/organizerController');
+const { requireAuth } = require('./middleware/authMiddleware');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Clubs
-app.get('/api/clubs', clubsController.getAllClubs);
+// Serve static files for uploaded images
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-const { requireAuth } = require('./middleware/authMiddleware');
+// Configure multer for image uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, '..', 'uploads'));
+    },
+  filename: (req, file, cb) => {
+    const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname);
+    cb(null, uniqueName);
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'));
+    }
+  }
+});
+
+// Clubs (public)
+app.get('/api/clubs', clubsController.getAllClubs);
 
 // Clubs (protected)
 app.post('/api/clubs/:clubId/join', requireAuth, clubsController.joinClub);
 app.post('/api/clubs/:clubId/leave', requireAuth, clubsController.leaveClub);
 
-
+// Organizer (protected)
+app.get('/api/organizer/my-clubs', requireAuth, organizerController.getMyClubs);
+app.post('/api/organizer/create-club', requireAuth, upload.single('image'), organizerController.createClub);
+app.get('/api/organizer/my-clubs', requireAuth, organizerController.getMyClubs);
+app.post('/api/organizer/create-club', requireAuth, upload.single('image'), organizerController.createClub);
+app.put('/api/organizer/edit-club/:clubId', requireAuth, upload.single('image'), organizerController.editClub);
 
 // Users
 app.post('/api/users/register', userController.register);
