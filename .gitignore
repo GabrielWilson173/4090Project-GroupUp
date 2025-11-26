@@ -13,6 +13,11 @@ backend/*.db
 backend/database/*.db
 
 # ========================
+# Uploads
+# ========================
+backend/uploads/
+
+# ========================
 # Environment / Secrets
 # ========================
 .env
