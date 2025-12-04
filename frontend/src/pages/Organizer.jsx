@@ -45,7 +45,7 @@ function Organizer() {
 
   const fetchMyClubs = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await fetch('http://localhost:5000/api/organizer/my-clubs', {
         headers: {
           Authorization: `Bearer ${token}`
@@ -193,7 +193,7 @@ function Organizer() {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await fetch('http://localhost:5000/api/organizer/create-club', {
         method: 'POST',
         headers: {
@@ -260,7 +260,7 @@ function Organizer() {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await fetch(`http://localhost:5000/api/organizer/edit-club/${selectedClub.id}`, {
         method: 'PUT',
         headers: {
@@ -300,7 +300,7 @@ function Organizer() {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await fetch(`http://localhost:5000/api/organizer/delete-club/${clubId}`, {
         method: 'DELETE',
         headers: {
