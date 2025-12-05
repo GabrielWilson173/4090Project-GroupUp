@@ -5,7 +5,7 @@ function Dashboard() {
   const [userClubs, setUserClubs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
 
   useEffect(() => {
     async function loadDashboardData() {
