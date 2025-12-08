@@ -43,10 +43,10 @@ exports.fetchMyClubs = (userId) => {
  */
 exports.createNewClub = (userId, clubData) => {
   return new Promise((resolve, reject) => {
-    const { name, address, city, state, zip_code, type, description, meetup_times, image_url } = clubData;
+    const { name, address, city, state, zip_code, type, description, meetup_times, image_url, longitude, latitude } = clubData;
 
     // Validate required fields
-    if (!name || !address || !city || !state || !zip_code || !type || !description) {
+    if (!name || !address || !city || !state || !zip_code || !type || !description || !longitude || !latitude) {
       return reject({ status: 400, message: 'Missing required fields' });
     }
 

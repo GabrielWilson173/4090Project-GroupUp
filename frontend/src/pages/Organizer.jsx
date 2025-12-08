@@ -23,6 +23,8 @@ function Organizer() {
     zip_code: '',
     type: 'Biking',
     description: '',
+    longitude: '',
+    latitude: '',
     meetup_times: '',
     image: null
   });
@@ -278,6 +280,8 @@ function Organizer() {
     formData.append('type', editForm.type);
     formData.append('description', editForm.description);
     formData.append('meetup_times', formattedMeetupTimes);
+    formData.append('longitude', editForm.longitude);
+    formData.append('latitude', editForm.latitude);
     if (editForm.image) {
       formData.append('image', editForm.image);
     }
@@ -496,6 +500,34 @@ function Organizer() {
                   required
                 />
                 <small style={{ color: '#666' }}>Format: Street Address, City, State ZIP</small>
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px' }}>
+                  <strong>Longitude:</strong>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Longitude"
+                  value={clubForm.longitude}
+                  onChange={(e) => setClubForm({ ...clubForm, longitude: e.target.value })}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  required
+                />
+              </div>
+              
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px' }}>
+                  <strong>Latitude:</strong>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Latitude"
+                  value={clubForm.latitude}
+                  onChange={(e) => setClubForm({ ...clubForm, latitude: e.target.value })}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  required
+                />
               </div>
 
               <div style={{ marginBottom: '15px' }}>
@@ -1020,6 +1052,12 @@ function Organizer() {
             </p>
             <p style={{ marginBottom: '10px' }}>
               <strong>Meetup Times:</strong> {selectedClub.meetup_times || 'None listed'}
+            </p>
+            <p style={{ marginBottom: '10px' }}>
+              <strong>Longitude:</strong> {selectedClub.longitude || 'None listed'}
+            </p>
+            <p style={{ marginBottom: '10px' }}>
+              <strong>Latitude: </strong> {selectedClub.latitude || 'None listed'}
             </p>
             <p style={{ marginBottom: '15px' }}>
               <strong>Members:</strong> {selectedClub.member_count || 0}
