@@ -15,7 +15,8 @@ backend/database/*.db
 # ========================
 # Uploads
 # ========================
-backend/uploads/
+backend/uploads/*
+!backend/uploads/.gitignore
 
 # ========================
 # Environment / Secrets
