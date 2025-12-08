@@ -362,3 +362,45 @@ exports.deleteClub = (userId, clubId) => {
     );
   });
 };
+
+/**
+ * Fetch all members of a club (only if user is owner)
+ */
+exports.fetchClubMembers = (userId, clubId) => {
+  return new Promise((resolve, reject) => {
+    // First verify the user owns this club
+    db.get(
+      'SELECT * FROM ClubOwnership WHERE club_ref = ? AND user_ref = ?',
+      [clubId, userId],
+      (err, ownership) => {
+        if (err) {
+          return reject({ status: 500, message: 'DB error checking ownership', err });
+        }
+        if (!ownership) {
+          return reject({ status: 403, message: 'You do not own this club' });
+        }
+
+        // Fetch all members
+        const query = `
+          SELECT 
+            ua.user_id,
+            ua.name,
+            ua.email,
+            cm.joined_at
+          FROM ClubMembership cm
+          INNER JOIN UserAccounts ua ON cm.user_ref = ua.user_id
+          WHERE cm.club_ref = ?
+          ORDER BY cm.joined_at ASC
+        `;
+
+        db.all(query, [clubId], (err, rows) => {
+          if (err) {
+            console.error('DB error fetching club members:', err);
+            return reject({ status: 500, message: 'DB error fetching members', err });
+          }
+          resolve(rows || []);
+        });
+      }
+    );
+  });
+};

@@ -63,6 +63,7 @@ app.post('/api/clubs/:clubId/leave', requireAuth, clubsController.leaveClub);
 // ----------------------
 // Organizer (protected)
 // ----------------------
+app.get('/api/organizer/club-members/:clubId', requireAuth, organizerController.getClubMembers);
 app.get('/api/organizer/my-clubs', requireAuth, organizerController.getMyClubs);
 app.post(
   '/api/organizer/create-club',

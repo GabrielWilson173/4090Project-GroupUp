@@ -10,6 +10,9 @@ function Organizer() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedClub, setSelectedClub] = useState(null);
   const [toast, setToast] = useState(null);
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [clubMembers, setClubMembers] = useState([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
 
   // Form state for creating a club
   const [clubForm, setClubForm] = useState({
@@ -42,6 +45,26 @@ function Organizer() {
   useEffect(() => {
     fetchMyClubs();
   }, []);
+
+  const fetchClubMembers = async (clubId) => {
+    setLoadingMembers(true);
+    try {
+      const token = sessionStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/organizer/club-members/${clubId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      setClubMembers(data.members || []);
+      setShowMembersModal(true);
+    } catch (error) {
+      console.error('Failed to fetch club members:', error);
+      setToast({ message: 'Failed to load members', type: 'error' });
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
 
   const fetchMyClubs = async () => {
     try {
@@ -400,7 +423,16 @@ function Organizer() {
                     : 'Not listed'}
                 </p>
                 <p style={{ margin: '8px 0' }}>
-                  <strong>Members:</strong> {club.member_count || 0}
+                  <strong>Members:</strong>{' '}
+                  <span
+                    style={{ color: 'blue', cursor: 'pointer', textDecoration: 'underline' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fetchClubMembers(club.id);
+                    }}
+                  >
+                    {club.member_count || 0}
+                  </span>
                 </p>
               </div>
             ))}
@@ -814,6 +846,86 @@ function Organizer() {
           </div>
         </div>
       )}
+
+{/* MEMBERS MODAL */}
+{showMembersModal && (
+  <div
+    style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100vw',
+      height: '100vh',
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1000,
+    }}
+    onClick={() => setShowMembersModal(false)}
+  >
+    <div
+      style={{
+        background: 'white',
+        padding: '25px',
+        borderRadius: '12px',
+        width: '500px',
+        maxHeight: '80vh',
+        overflowY: 'auto',
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <h2>Club Members</h2>
+      {loadingMembers ? (
+        <p>Loading members...</p>
+      ) : clubMembers.length === 0 ? (
+        <p>No members yet.</p>
+      ) : (
+        <div style={{ marginTop: '20px' }}>
+          {clubMembers.map((member, index) => (
+            <div
+              key={member.user_id || index}
+              style={{
+                padding: '15px',
+                borderBottom: '1px solid #eee',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div>
+                <p style={{ margin: '0 0 5px 0', fontWeight: 'bold' }}>
+                  {member.name}
+                </p>
+                <p style={{ margin: 0, fontSize: '14px', color: '#666' }}>
+                  {member.email}
+                </p>
+                <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#999' }}>
+                  Joined: {new Date(member.joined_at).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <button
+        onClick={() => setShowMembersModal(false)}
+        style={{
+          padding: '10px 20px',
+          background: '#6c757d',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          width: '100%',
+          marginTop: '20px',
+        }}
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
 
 {/* CLUB DETAILS MODAL */}
       {selectedClub && !showEditModal && (

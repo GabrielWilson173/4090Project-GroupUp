@@ -193,3 +193,11 @@ INSERT INTO ClubKeywords (club_ref, keyword) VALUES
 
 INSERT INTO UserAccounts (name, email, password_hash) VALUES
 ('Dummy User', 'dummy@example.com', '$2a$10$u/mdSyxRbv.ba9oAsdBxbOwhRJZgGLS6FaqkbaaXBTswcoqUvxmky');
+
+INSERT INTO ClubOwnership (club_ref, user_ref) VALUES
+    (1, 1), (2, 1), (3, 1), (4, 1), (5, 1), 
+    (6, 1), (7, 1), (8, 1), (9, 1), (10, 1), (11, 1);
+
+INSERT INTO ClubMembership (user_ref, club_ref) VALUES
+    (1, 1), (1, 2), (1, 3), (1, 4), (1, 5), 
+    (1, 6), (1, 7), (1, 8), (1, 9), (1, 10), (1, 11);

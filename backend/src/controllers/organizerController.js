@@ -57,11 +57,25 @@ async function deleteClub(req, res) {
   }
 }
 
+async function getClubMembers(req, res) {
+  try {
+    const userId = req.user.userId;
+    const clubId = req.params.clubId;
+    
+    const members = await organizerService.fetchClubMembers(userId, clubId);
+    res.json({ members });
+  } catch (err) {
+    console.error('Get club members error:', err);
+    res.status(err.status || 500).json({ error: err.message || 'internal server error' });
+  }
+}
+
 module.exports = {
   getMyClubs,
   createClub,
   editClub,
-  deleteClub  
+  deleteClub,
+  getClubMembers  
 };
 
 
