@@ -102,7 +102,13 @@ function Dashboard() {
             >
               {/* Club Image – same style as Clubs.jsx */}
               <img
-                src={club.image_url || "https://via.placeholder.com/250x150"}
+                src={
+                  club.image_url
+                    ? club.image_url.startsWith("http")
+                      ? club.image_url
+                      : `http://localhost:5000${club.image_url}`
+                    : "https://via.placeholder.com/250x150"
+                }
                 alt={club.name}
                 style={{
                   width: "100%",
@@ -174,8 +180,11 @@ function Dashboard() {
 
             <img
               src={
-                selectedClub.image_url ||
-                "https://via.placeholder.com/450x250"
+                selectedClub.image_url
+                  ? selectedClub.image_url.startsWith("http")
+                    ? selectedClub.image_url
+                    : `http://localhost:5000${selectedClub.image_url}`
+                  : "https://via.placeholder.com/450x250"
               }
               alt={selectedClub.name}
               style={{
