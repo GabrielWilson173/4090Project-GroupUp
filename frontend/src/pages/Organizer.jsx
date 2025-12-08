@@ -178,6 +178,8 @@ function Organizer() {
       name: club.name,
       address: `${club.address}, ${club.city}, ${club.state} ${club.zip_code}`,
       type: club.type,
+      longitude: club.longitude,
+      latitude: club.latitude,
       description: club.description,
       meetup_times: club.meetup_times,
       image: null
@@ -213,6 +215,8 @@ function Organizer() {
     formData.append('type', clubForm.type);
     formData.append('description', clubForm.description);
     formData.append('meetup_times', formattedMeetupTimes);
+    formData.append('longitude', editForm.longitude);
+    formData.append('latitude', editForm.latitude);
     if (clubForm.image) {
       formData.append('image', clubForm.image);
     }
@@ -306,6 +310,8 @@ function Organizer() {
           type: 'Biking',
           description: '',
           meetup_times: '',
+          longitude: '',
+          latitude: '',
           image: null
         });
         setEditMeetupDays([]);
@@ -507,7 +513,7 @@ function Organizer() {
                   <strong>Longitude:</strong>
                 </label>
                 <input
-                  type="text"
+                  type="real"
                   placeholder="Longitude"
                   value={clubForm.longitude}
                   onChange={(e) => setClubForm({ ...clubForm, longitude: e.target.value })}
@@ -521,7 +527,7 @@ function Organizer() {
                   <strong>Latitude:</strong>
                 </label>
                 <input
-                  type="text"
+                  type="real"
                   placeholder="Latitude"
                   value={clubForm.latitude}
                   onChange={(e) => setClubForm({ ...clubForm, latitude: e.target.value })}
@@ -764,6 +770,36 @@ function Organizer() {
                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', minHeight: '80px' }}
                   required
                 />
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px' }}>
+                  <strong>Longitude:</strong>
+                </label>
+                <input
+                  type="real"
+                  placeholder="00 00.00"
+                  value={editForm.longitude}
+                  onChange={(e) => setEditForm({ ...editForm, longitude: e.target.value })}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  required
+                />
+                <small style={{ color: '#666' }}>Format: 00 00.00</small>
+              </div>
+              
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px' }}>
+                  <strong>Latitude:</strong>
+                </label>
+                <input
+                  type="real"
+                  placeholder="00 00.00"
+                  value={editForm.latitude}
+                  onChange={(e) => setEditForm({ ...editForm, latitude: e.target.value })}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  required
+                />
+                <small style={{ color: '#666' }}>Format: 00 00.00</small>
               </div>
 
               <div style={{ marginBottom: '15px' }}>

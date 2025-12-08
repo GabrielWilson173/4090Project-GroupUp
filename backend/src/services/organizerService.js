@@ -166,6 +166,8 @@ exports.updateClub = (userId, clubId, clubData) => {
       zip_code,
       type,
       description,
+      longitude,
+      latitude,
       meetup_times,
       image_url
     } = clubData;
@@ -174,7 +176,7 @@ exports.updateClub = (userId, clubId, clubData) => {
     meetup_times && meetup_times.trim() !== '' ? meetup_times : undefined;
 
     // Validate required fields
-    if (!name || !address || !city || !state || !zip_code || !type || !description) {
+    if (!name || !address || !city || !state || !zip_code || !longitude || !latitude || !type || !description) {
       return reject({ status: 400, message: 'Missing required fields' });
     }
 
@@ -231,13 +233,13 @@ exports.updateClub = (userId, clubId, clubData) => {
             // Update ClubLocation
             const updateLocationQuery = `
               UPDATE ClubLocation
-              SET address = ?, city = ?, state = ?, zip_code = ?
+              SET address = ?, city = ?, state = ?, zip_code = ?, longitude = ?, latitude = ?
               WHERE club_ref = ?
             `;
 
             db.run(
               updateLocationQuery,
-              [address, city, state, zip_code, clubId],
+              [address, city, state, zip_code, longitude, latitude, clubId],
               function (err) {
                 if (err) {
                   db.run('ROLLBACK');
@@ -266,6 +268,8 @@ exports.updateClub = (userId, clubId, clubData) => {
                       cl.city,
                       cl.state,
                       cl.zip_code
+                      cl.longitude
+                      cl.latitude
                     FROM ClubsBasic cb
                     LEFT JOIN ClubLocation cl ON cb.club_id = cl.club_ref
                     WHERE cb.club_id = ?
