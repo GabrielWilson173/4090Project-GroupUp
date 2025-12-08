@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 function Profile({ handleLogout }) {
   const [user, setUser] = useState(
@@ -10,6 +10,10 @@ function Profile({ handleLogout }) {
     name: user.name || '',
     email: user.email || '',
     location: user.location || ''
+  });
+
+  const [fontSize, setFontSize] = useState(() => {
+    return sessionStorage.getItem('fontSize') || 'medium';
   });
 
   const handleEditProfile = () => {
@@ -34,6 +38,16 @@ function Profile({ handleLogout }) {
       ...editForm,
       [e.target.name]: e.target.value
     });
+  };
+
+  const handleFontSizeChange = (size) => {
+    setFontSize(size);
+    sessionStorage.setItem('fontSize', size);
+    // Update the root font size
+    document.documentElement.style.fontSize = 
+      size === 'small' ? '14px' : 
+      size === 'medium' ? '16px' : 
+      size === 'large' ? '18px' : '20px';
   };
 
   return (
@@ -72,6 +86,41 @@ function Profile({ handleLogout }) {
         >
           Logout
         </button>
+      </div>
+
+      {/* ===================== ACCESSIBILITY OPTIONS ===================== */}
+      <div style={{ 
+        marginTop: '40px', 
+        padding: '20px', 
+        border: '1px solid #ccc', 
+        borderRadius: '8px',
+        backgroundColor: '#f9f9f9'
+      }}>
+        <h3>Accessibility Options</h3>
+        <div style={{ marginTop: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '10px' }}>
+            <strong>Font Size:</strong>
+          </label>
+          <select 
+            value={fontSize}
+            onChange={(e) => handleFontSizeChange(e.target.value)}
+            style={{
+              padding: '10px',
+              borderRadius: '4px',
+              border: '1px solid #ccc',
+              fontSize: '16px',
+              width: '200px'
+            }}
+          >
+            <option value="small">Small</option>
+            <option value="medium">Medium (Default)</option>
+            <option value="large">Large</option>
+            <option value="xlarge">Extra Large</option>
+          </select>
+          <p style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
+            Changes will apply to all pages in the app.
+          </p>
+        </div>
       </div>
 
       {/* ===================== EDIT PROFILE ===================== */}

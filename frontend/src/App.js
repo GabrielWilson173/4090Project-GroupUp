@@ -29,6 +29,15 @@ function App() {
     sessionStorage.setItem('pageReloaded', 'true');
   }, []);
 
+  useEffect(() => {
+    // Apply saved font size preference
+    const savedFontSize = sessionStorage.getItem('fontSize') || 'medium';
+    document.documentElement.style.fontSize = 
+      savedFontSize === 'small' ? '14px' : 
+      savedFontSize === 'medium' ? '16px' : 
+      savedFontSize === 'large' ? '18px' : '20px';
+  }, []);
+
   const handleLogout = () => {
     sessionStorage.removeItem('token');
     sessionStorage.removeItem('user');
