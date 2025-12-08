@@ -11,6 +11,19 @@ function Clubs() {
   // Popup
   const [selectedClub, setselectedClub] = useState(null);
 
+  // Feedback modal states
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showLeaveFeedbackModal, setShowLeaveFeedbackModal] = useState(false);
+  const [feedbackList, setFeedbackList] = useState([]);
+  const [loadingFeedback, setLoadingFeedback] = useState(false);
+  const [feedbackClub, setFeedbackClub] = useState(null);
+  
+  // Feedback form state
+  const [feedbackForm, setFeedbackForm] = useState({
+    rating: 5,
+    comment: ''
+  });
+
   // Search state
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -42,7 +55,6 @@ function Clubs() {
           const joined = userData.user.joined_clubs || [];
           setJoinedClubs(joined);
         } else {
-          // User not authenticated - just skip loading joined clubs
           console.log("User not logged in - some features disabled");
           setJoinedClubs([]);
         }
@@ -56,10 +68,66 @@ function Clubs() {
     fetchClubs();
   }, []);
 
+  const fetchClubFeedback = async (clubId) => {
+    setLoadingFeedback(true);
+    try {
+      const token = sessionStorage.getItem("token");
+      const response = await fetch(`http://localhost:5000/api/clubs/${clubId}/feedback`, {
+        headers: {
+          Authorization: `Bearer ${token || ""}`
+        }
+      });
+      const data = await response.json();
+      setFeedbackList(data.feedback || []);
+      setShowFeedbackModal(true);
+    } catch (error) {
+      console.error('Failed to fetch feedback:', error);
+      setToast({ message: 'Failed to load feedback', type: 'error' });
+    } finally {
+      setLoadingFeedback(false);
+    }
+  };
+
+  const handleLeaveFeedback = async (e) => {
+    e.preventDefault();
+    
+    if (!feedbackForm.comment.trim()) {
+      setToast({ message: 'Please write a comment', type: 'error' });
+      return;
+    }
+
+    try {
+      const token = sessionStorage.getItem("token");
+      const response = await fetch(`http://localhost:5000/api/clubs/${feedbackClub.id}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          rating: feedbackForm.rating,
+          comment: feedbackForm.comment
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setToast({ message: 'Feedback submitted successfully!', type: 'success' });
+        setShowLeaveFeedbackModal(false);
+        setFeedbackForm({ rating: 5, comment: '' });
+        // Refresh feedback list
+        fetchClubFeedback(feedbackClub.id);
+      } else {
+        setToast({ message: data.error || 'Failed to submit feedback', type: 'error' });
+      }
+    } catch (error) {
+      console.error('Failed to submit feedback:', error);
+      setToast({ message: 'Failed to submit feedback', type: 'error' });
+    }
+  };
 
   if (loading) return <p>Loading clubs...</p>;
 
-  // ===== FILTERED CLUB LIST =====
   const filteredClubs = clubs.filter((club) => {
     const matchesSearch =
       club.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -85,7 +153,6 @@ function Clubs() {
           alignItems: "center",
         }}
       >
-        {/* Search bar */}
         <input
           type="text"
           placeholder="Search clubs..."
@@ -99,7 +166,6 @@ function Clubs() {
           }}
         />
 
-        {/* Club type dropdown */}
         <select
           value={clubType}
           onChange={(e) => setClubType(e.target.value)}
@@ -128,7 +194,7 @@ function Clubs() {
 
         {filteredClubs.map((club) => (
           <div
-            key={club.id || club.id}
+            key={club.id}
             style={{
               width: "250px",
               border: "1px solid #ccc",
@@ -137,9 +203,6 @@ function Clubs() {
               boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
             }}
           >
-            
-            {/* Club Image - MOVED TO TOP */}
-            
             <img
               src={
                 club.image_url
@@ -158,8 +221,6 @@ function Clubs() {
               }}
             />
 
-
-            {/* Club clickable name */}
             <h3
               style={{
                 color: "blue",
@@ -182,11 +243,29 @@ function Clubs() {
             <p style={{ margin: "8px 0" }}>
               <strong>Meetups:</strong> {club.meetup_times || "None listed"}
             </p>
+
+            {/* Feedback link */}
+            <p style={{ margin: "8px 0" }}>
+              <span
+                style={{
+                  color: "blue",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFeedbackClub(club);
+                  fetchClubFeedback(club.id);
+                }}
+              >
+                View Feedback
+              </span>
+            </p>
           </div>
         ))}
       </div>
 
-      {/* ======== MODAL POPUP ========= */}
+      {/* ======== CLUB DETAILS MODAL ========= */}
       {selectedClub && (
         <div
           style={{
@@ -216,7 +295,6 @@ function Clubs() {
           >
             <h2>{selectedClub.name}</h2>
 
-            {/* Club Image */}
             <img
               src={
                 selectedClub.image_url
@@ -234,7 +312,6 @@ function Clubs() {
                 marginBottom: "15px",
               }}
             />
-
 
             <p style={{ marginBottom: "10px" }}>
               <strong>Type:</strong> {selectedClub.type || "Not specified"}
@@ -262,7 +339,6 @@ function Clubs() {
               <strong>Members:</strong> {selectedClub.member_count || 0}
             </p>
 
-            {/* Only show the button if the current user is NOT the organizer */}
             {selectedClub.organizer_id !== currentUserId && (
               <button
                 style={{
@@ -289,18 +365,16 @@ function Clubs() {
                         method: "POST",
                         headers: {
                           "Content-Type": "application/json",
-                          Authorization: `Bearer ${token}`, // <--- send JWT here
+                          Authorization: `Bearer ${token}`,
                         },
                       }
                     );
                     const data = await response.json();
                     if (data.success) {
-                      // Update selected club's member count locally
                       setselectedClub({
                         ...selectedClub,
                         member_count: data.member_count,
                       });
-                      // Update main clubs list
                       setClubs((prevClubs) =>
                         prevClubs.map((club) =>
                           club.id === selectedClub.id
@@ -309,7 +383,6 @@ function Clubs() {
                         )
                       );
 
-                      // Update joinedClubs state
                       if (action === "join") {
                         setJoinedClubs((prev) => [...prev, selectedClub.id]);
                       } else {
@@ -329,11 +402,230 @@ function Clubs() {
                 {joinedClubs.includes(selectedClub.id) ? "Leave Club" : "Join Club"}
               </button>
             )}
-
           </div>
         </div>
       )}
-    {toast && (
+
+      {/* ======== FEEDBACK MODAL ========= */}
+      {showFeedbackModal && feedbackClub && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => {
+            setShowFeedbackModal(false);
+            setFeedbackClub(null);
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              padding: "25px",
+              borderRadius: "12px",
+              width: "600px",
+              maxHeight: "80vh",
+              overflowY: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2>Feedback for {feedbackClub.name}</h2>
+
+            {joinedClubs.includes(feedbackClub.id) && (
+              <button
+                onClick={() => {
+                  setShowFeedbackModal(false);
+                  setShowLeaveFeedbackModal(true);
+                }}
+                style={{
+                  padding: "10px 20px",
+                  background: "#007bff",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  marginBottom: "20px",
+                }}
+              >
+                Leave Feedback
+              </button>
+            )}
+
+            {loadingFeedback ? (
+              <p>Loading feedback...</p>
+            ) : feedbackList.length === 0 ? (
+              <p>No feedback yet. Be the first to leave feedback!</p>
+            ) : (
+              <div>
+                {feedbackList.map((feedback, index) => (
+                  <div
+                    key={feedback.feedback_id || index}
+                    style={{
+                      padding: "15px",
+                      borderBottom: "1px solid #eee",
+                      marginBottom: "15px",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
+                      <strong>{feedback.user_name}</strong>
+                      <div>
+                        {"⭐".repeat(feedback.rating)}
+                        <span style={{ color: "#999", marginLeft: "10px" }}>
+                          ({feedback.rating}/5)
+                        </span>
+                      </div>
+                    </div>
+                    <p style={{ margin: "10px 0", color: "#333" }}>{feedback.comment}</p>
+                    <p style={{ fontSize: "12px", color: "#999" }}>
+                      {new Date(feedback.submitted_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                setShowFeedbackModal(false);
+                setFeedbackClub(null);
+              }}
+              style={{
+                padding: "10px 20px",
+                background: "#6c757d",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                width: "100%",
+                marginTop: "20px",
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ======== LEAVE FEEDBACK MODAL ========= */}
+      {showLeaveFeedbackModal && feedbackClub && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1001,
+          }}
+          onClick={() => {
+            setShowLeaveFeedbackModal(false);
+            setFeedbackForm({ rating: 5, comment: '' });
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              padding: "25px",
+              borderRadius: "12px",
+              width: "500px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2>Leave Feedback for {feedbackClub.name}</h2>
+            <form onSubmit={handleLeaveFeedback}>
+              <div style={{ marginBottom: "15px" }}>
+                <label style={{ display: "block", marginBottom: "5px" }}>
+                  <strong>Rating:</strong>
+                </label>
+                <select
+                  value={feedbackForm.rating}
+                  onChange={(e) => setFeedbackForm({ ...feedbackForm, rating: parseInt(e.target.value) })}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                  }}
+                >
+                  <option value={5}>⭐⭐⭐⭐⭐ (5 - Excellent)</option>
+                  <option value={4}>⭐⭐⭐⭐ (4 - Good)</option>
+                  <option value={3}>⭐⭐⭐ (3 - Average)</option>
+                  <option value={2}>⭐⭐ (2 - Poor)</option>
+                  <option value={1}>⭐ (1 - Very Poor)</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: "15px" }}>
+                <label style={{ display: "block", marginBottom: "5px" }}>
+                  <strong>Comment:</strong>
+                </label>
+                <textarea
+                  value={feedbackForm.comment}
+                  onChange={(e) => setFeedbackForm({ ...feedbackForm, comment: e.target.value })}
+                  placeholder="Share your experience with this club..."
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    minHeight: "100px",
+                  }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  type="submit"
+                  style={{
+                    flex: 1,
+                    padding: "10px 20px",
+                    background: "#28a745",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Submit Feedback
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLeaveFeedbackModal(false);
+                    setFeedbackForm({ rating: 5, comment: '' });
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "10px 20px",
+                    background: "#6c757d",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {toast && (
         <Toast
           message={toast.message}
           type={toast.type}
