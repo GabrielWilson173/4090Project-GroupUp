@@ -77,11 +77,17 @@ function Dashboard() {
   return (
     <div style={{ padding: "20px" }}>
       <h2>Dashboard</h2>
-      <p>Welcome to your dashboard!</p>
-      <p>
-        Here you'll see your clubs and upcoming club events. Get started by
-        joining some <Link to="/clubs">clubs</Link>!
-      </p>
+
+        {userClubs.length === 0 && (
+          <>
+            <p>Welcome to your dashboard!</p>
+            <p>
+              Here you'll see your clubs and upcoming club events. Get started by
+              joining some <Link to="/clubs">clubs</Link>!
+            </p>
+          </>
+        )}
+
 
       {/* ================= USER’S CLUBS ================= */}
       <h3>Your Clubs:</h3>
