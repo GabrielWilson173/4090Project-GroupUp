@@ -136,12 +136,95 @@ function Clubs() {
     const matchesType =
       clubType === "all" ||
       club.type?.toLowerCase() === clubType.toLowerCase();
-
     return matchesSearch && matchesType;
   });
 
+  const nearbyClubs = clubs.filter((club) => {
+    const matchesSearch =
+      false;
+    return matchesSearch;
+  })
+
   return (
     <div style={{ padding: "20px" }}>
+      <h2>Nearby Clubs</h2>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "20px" }}>
+        {filteredClubs.length === 0 && (
+          <p>No Nearby Clubs</p>
+        )}
+
+        {nearbyClubs.map((club) => (
+          <div
+            key={club.id}
+            style={{
+              width: "250px",
+              border: "1px solid #ccc",
+              padding: "15px",
+              borderRadius: "10px",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+            }}
+          >
+            <img
+              src={
+                club.image_url
+                  ? club.image_url.startsWith("http")
+                    ? club.image_url
+                    : `http://localhost:5000${club.image_url}`
+                  : "https://via.placeholder.com/250x150"
+              }
+              alt={club.name}
+              style={{
+                width: "100%",
+                height: "150px",
+                objectFit: "cover",
+                borderRadius: "8px",
+                marginBottom: "10px",
+              }}
+            />
+
+            <h3
+              style={{
+                color: "blue",
+                cursor: "pointer",
+                textDecoration: "underline",
+                margin: "10px 0",
+              }}
+              onClick={() => setselectedClub(club)}
+            >
+              {club.name}
+            </h3>
+
+            <p style={{ margin: "8px 0" }}>
+              <strong>Location:</strong>{" "}
+              {club.city && club.state
+                ? `${club.city}, ${club.state}`
+                : "Not listed"}
+            </p>
+
+            <p style={{ margin: "8px 0" }}>
+              <strong>Meetups:</strong> {club.meetup_times || "None listed"}
+            </p>
+
+            {/* Feedback link */}
+            <p style={{ margin: "8px 0" }}>
+              <span
+                style={{
+                  color: "blue",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFeedbackClub(club);
+                  fetchClubFeedback(club.id);
+                }}
+              >
+                View Feedback
+              </span>
+            </p>
+          </div>
+        ))}
+      </div>
       <h2>Browse Clubs</h2>
 
       {/* ====== SEARCH + FILTER BAR ====== */}
