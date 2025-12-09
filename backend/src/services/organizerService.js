@@ -138,7 +138,9 @@ exports.createNewClub = (userId, clubData) => {
                           address,
                           city,
                           state,
-                          zip_code
+                          zip_code,
+                          longitude,
+                          latitude
                         });
                       });
                     }

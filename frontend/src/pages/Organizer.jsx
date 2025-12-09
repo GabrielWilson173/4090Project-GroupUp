@@ -36,6 +36,8 @@ function Organizer() {
     type: 'Biking',
     description: '',
     meetup_times: '',
+    longitude: '',
+    latitude: '',
     image: null
   });
 
@@ -520,6 +522,7 @@ function Organizer() {
                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
                   required
                 />
+                <small style={{ color: '#666' }}>Format: 00 00.00</small>
               </div>
               
               <div style={{ marginBottom: '15px' }}>
@@ -534,6 +537,7 @@ function Organizer() {
                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
                   required
                 />
+                <small style={{ color: '#666' }}>Format: 00 00.00</small>
               </div>
 
               <div style={{ marginBottom: '15px' }}>
