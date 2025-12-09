@@ -59,3 +59,54 @@ exports.leaveClub = async (req, res) => {
     res.status(500).json({ error: "Failed to leave club" });
   }
 };
+
+// =============================
+// Get feedback for a club
+// =============================
+exports.getClubFeedback = async (req, res) => {
+  try {
+    const { clubId } = req.params;
+
+    const feedback = await clubsService.getClubFeedback(clubId);
+
+    res.json({ success: true, feedback });
+  } catch (error) {
+    console.error("Failed to fetch feedback:", error);
+    res.status(500).json({ error: "Failed to load club feedback" });
+  }
+};
+
+
+// =============================
+// Submit feedback for a club
+// =============================
+exports.submitFeedback = async (req, res) => {
+  try {
+    const { clubId } = req.params;
+    const userId = req.user.userId;
+    const { rating, comment } = req.body;
+
+    // Validation
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: "Rating must be between 1 and 5" });
+    }
+    if (!comment || comment.trim().length === 0) {
+      return res.status(400).json({ error: "Comment cannot be empty" });
+    }
+
+    // Ensure user is a member before leaving feedback
+    const isMember = await clubsService.isMember(clubId, userId);
+    if (!isMember) {
+      return res.status(403).json({
+        error: "Only club members can leave feedback"
+      });
+    }
+
+    await clubsService.submitFeedback(clubId, userId, rating, comment);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to submit feedback:", error);
+    res.status(500).json({ error: "Failed to submit feedback" });
+  }
+};

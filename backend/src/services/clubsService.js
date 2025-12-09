@@ -158,3 +158,62 @@ exports.leaveClub = (clubId, userId) => {
     });
   });
 };
+
+/**
+ * Check if a user is a member of a club
+ */
+exports.isMember = (clubId, userId) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT 1 FROM ClubMembership 
+      WHERE club_ref = ? AND user_ref = ?
+    `;
+    db.get(query, [clubId, userId], (err, row) => {
+      if (err) return reject(err);
+      resolve(!!row); // true if user is a member
+    });
+  });
+};
+
+exports.getClubFeedback = (clubId) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT 
+        f.feedback_id AS id,
+        f.rating,
+        f.comment,
+        f.submitted_at,
+        u.name AS user_name
+      FROM Feedback f
+      JOIN UserAccounts u ON f.user_ref = u.user_id
+      WHERE f.club_ref = ?
+      ORDER BY f.submitted_at DESC
+    `;
+
+    db.all(query, [clubId], (err, rows) => {
+      if (err) {
+        console.error("DB error loading feedback:", err);
+        return reject(err);
+      }
+      resolve(rows || []);
+    });
+  });
+};
+
+
+exports.submitFeedback = (clubId, userId, rating, comment) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      INSERT INTO Feedback (club_ref, user_ref, rating, comment)
+      VALUES (?, ?, ?, ?)
+    `;
+
+    db.run(query, [clubId, userId, rating, comment], function (err) {
+      if (err) {
+        console.error("DB error saving feedback:", err);
+        return reject(err);
+      }
+      resolve({ success: true });
+    });
+  });
+};

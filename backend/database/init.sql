@@ -1,4 +1,4 @@
-PRAGMA foreign_keys = OFF; 
+PRAGMA foreign_keys = ON;
 
 -- Development cleanup
 DROP TABLE IF EXISTS UserAccounts;
@@ -115,11 +115,15 @@ CREATE TABLE EventNotifications (
 
 CREATE TABLE Feedback (
     feedback_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    club_ref INTEGER,
-    user_ref INTEGER,
-    rating INTEGER,
+    club_ref INTEGER NOT NULL,
+    user_ref INTEGER NOT NULL,
+    rating INTEGER CHECK (rating BETWEEN 1 AND 5),
     comment TEXT,
-    submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_feedback_club 
+        FOREIGN KEY (club_ref) REFERENCES ClubsBasic(club_id) ON DELETE CASCADE,
+    CONSTRAINT fk_feedback_user 
+        FOREIGN KEY (user_ref) REFERENCES UserAccounts(user_id) ON DELETE CASCADE
 );
 
 ----------------------------------------------------------
@@ -192,12 +196,74 @@ INSERT INTO ClubKeywords (club_ref, keyword) VALUES
     (11, 'soccer'), (11, 'sports');
 
 INSERT INTO UserAccounts (name, email, password_hash) VALUES
-('Dummy User', 'dummy@example.com', '$2a$10$u/mdSyxRbv.ba9oAsdBxbOwhRJZgGLS6FaqkbaaXBTswcoqUvxmky');
+('Frederick Jones', 'dummy@example.com', '$2a$10$u/mdSyxRbv.ba9oAsdBxbOwhRJZgGLS6FaqkbaaXBTswcoqUvxmky'),
+('Alex Johnson', 'alex.johnson@example.com', '$2a$10$u/mdSyxRbv.ba9oAsdBxbOwhRJZgGLS6FaqkbaaXBTswcoqUvxmky'),
+('Maria Lopez', 'maria.lopez@example.com', '$2a$10$u/mdSyxRbv.ba9oAsdBxbOwhRJZgGLS6FaqkbaaXBTswcoqUvxmky'),
+('Ethan Carter', 'ethan.carter@example.com', '$2a$10$u/mdSyxRbv.ba9oAsdBxbOwhRJZgGLS6FaqkbaaXBTswcoqUvxmky'),
+('Sophie Nguyen', 'sophie.nguyen@example.com', '$2a$10$u/mdSyxRbv.ba9oAsdBxbOwhRJZgGLS6FaqkbaaXBTswcoqUvxmky'),
+('Liam Patel', 'liam.patel@example.com', '$2a$10$u/mdSyxRbv.ba9oAsdBxbOwhRJZgGLS6FaqkbaaXBTswcoqUvxmky');
 
 INSERT INTO ClubOwnership (club_ref, user_ref) VALUES
     (1, 1), (2, 1), (3, 1), (4, 1), (5, 1), 
     (6, 1), (7, 1), (8, 1), (9, 1), (10, 1), (11, 1);
 
 INSERT INTO ClubMembership (user_ref, club_ref) VALUES
-    (1, 1), (1, 2), (1, 3), (1, 4), (1, 5), 
-    (1, 6), (1, 7), (1, 8), (1, 9), (1, 10), (1, 11);
+    -- Original memberships for user 1
+    (1, 1), (1, 2), (1, 3), (1, 4), (1, 5),
+    (1, 6), (1, 7), (1, 8), (1, 9), (1, 10), (1, 11),
+
+    -- User 2: Alex Johnson
+    (2, 1), (2, 4), (2, 6),
+
+    -- User 3: Maria Lopez
+    (3, 2), (3, 5), (3, 7), (3, 9),
+
+    -- User 4: Ethan Carter
+    (4, 3), (4, 6), (4, 8), (4, 10),
+
+    -- User 5: Sophie Nguyen
+    (5, 1), (5, 2), (5, 11),
+
+    -- User 6: Liam Patel
+    (6, 4), (6, 7), (6, 9), (6, 11);
+
+INSERT INTO Feedback (club_ref, user_ref, rating, comment) VALUES
+    -- User 1 feedback (one review per club)
+    (1, 1, 5, 'Great group with friendly riders and scenic routes.'),
+    (2, 1, 5, 'Excellent instructor and relaxing sessions.'),
+    (3, 1, 5, 'Competitive but supportive atmosphere.'),
+    (4, 1, 4, 'Challenging morning runs and a good community.'),
+    (5, 1, 5, 'Learned a lot about composition.'),
+    (6, 1, 4, 'Large selection of games and friendly players.'),
+    (7, 1, 5, 'Very calming and well-guided meditation sessions.'),
+    (8, 1, 4, 'Well-organized kayaking trips with great views.'),
+    (9, 1, 5, 'Everyone is knowledgeable about gardening.'),
+    (10, 1, 5, 'Energetic club with friendly beginners.'),
+    (11, 1, 4, 'Fun weekend soccer matches.'),
+
+    -- User 2 (Alex Johnson)
+    (1, 2, 4, 'Good ride routes and solid pacing.'),
+    (4, 2, 5, 'Running group has excellent coaching.'),
+    (6, 2, 5, 'Board game nights are always fun.'),
+
+    -- User 3 (Maria Lopez)
+    (2, 3, 5, 'Yoga sessions are peaceful and beginner friendly.'),
+    (5, 3, 4, 'Photography workshops are helpful.'),
+    (7, 3, 5, 'Meditation group helped me focus better.'),
+
+    -- User 4 (Ethan Carter)
+    (3, 4, 4, 'Cycling drills helped improve my endurance.'),
+    (8, 4, 5, 'Kayaking trips are well coordinated.'),
+    (10, 4, 4, 'Running sprints were intense but rewarding.'),
+
+    -- User 5 (Sophie Nguyen)
+    (1, 5, 5, 'Loved the cycling community.'),
+    (2, 5, 4, 'Yoga classes have great energy.'),
+    (11, 5, 5, 'Soccer games are the highlight of my week.'),
+
+    -- User 6 (Liam Patel)
+    (4, 6, 4, 'Great group for morning runs.'),
+    (7, 6, 5, 'Meditation leaders are very welcoming.'),
+    (11, 6, 4, 'Soccer community is supportive and fun.');
+
+

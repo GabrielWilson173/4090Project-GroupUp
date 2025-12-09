@@ -60,6 +60,10 @@ app.get('/api/clubs', clubsController.getAllClubs);
 app.post('/api/clubs/:clubId/join', requireAuth, clubsController.joinClub);
 app.post('/api/clubs/:clubId/leave', requireAuth, clubsController.leaveClub);
 
+// Feedback routes 
+app.get('/api/clubs/:clubId/feedback', clubsController.getClubFeedback);
+app.post('/api/clubs/:clubId/feedback', requireAuth, clubsController.submitFeedback);
+
 // ----------------------
 // Organizer (protected)
 // ----------------------
