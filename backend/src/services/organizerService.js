@@ -47,7 +47,16 @@ exports.createNewClub = (userId, clubData) => {
 
     // Validate required fields
     if (!name || !address || !city || !state || !zip_code || !type || !description || !longitude || !latitude) {
-      return reject({ status: 400, message: 'Missing required fields' });
+      if (!name || !type || !description) {
+        return reject({status: 400, message: 'Missing Required Fields: Club Info'})
+      }
+      if (!address || !city || !state || !zip_code) {
+        return reject({status: 400, message: 'Missing Required Fields: Club City'})
+      }
+      if (!longitude || !latitude) {
+        return reject({status: 400, message: 'Missing Required Fields: Club Geoposition'})
+      }
+      return reject({ status: 400, message: 'Missing Required Fields: Unknown' });
     }
 
     // Start transaction
@@ -75,12 +84,12 @@ exports.createNewClub = (userId, clubData) => {
           // Insert into ClubLocation
           const insertLocationQuery = `
             INSERT INTO ClubLocation (club_ref, address, city, state, zip_code, latitude, longitude)
-            VALUES (?, ?, ?, ?, ?, NULL, NULL)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
           `;
 
           db.run(
             insertLocationQuery,
-            [clubId, address, city, state, zip_code],
+            [clubId, address, city, state, zip_code, longitude, latitude],
             function (err) {
               if (err) {
                 db.run('ROLLBACK');

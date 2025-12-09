@@ -217,8 +217,8 @@ function Organizer() {
     formData.append('type', clubForm.type);
     formData.append('description', clubForm.description);
     formData.append('meetup_times', formattedMeetupTimes);
-    formData.append('longitude', editForm.longitude);
-    formData.append('latitude', editForm.latitude);
+    formData.append('longitude', clubForm.longitude);
+    formData.append('latitude', clubForm.latitude);
     if (clubForm.image) {
       formData.append('image', clubForm.image);
     }
@@ -246,12 +246,14 @@ function Organizer() {
           type: 'Biking',
           description: '',
           meetup_times: '',
+          longitude: '',
+          latitude: '',
           image: null
         });
         setMeetupDays([]);
         fetchMyClubs(); // Refresh the list
       } else {
-        setToast({ message: 'Failed to delete club', type: 'error' });
+        setToast({ message: 'Failed to modify club', type: 'error' });
       }
     } catch (error) {
       console.error('Failed to create club:', error);
