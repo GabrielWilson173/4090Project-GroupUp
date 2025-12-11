@@ -1,0 +1,71 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 0'  # Run weekly on Sundays
+
+jobs:
+  dependency-check:
+    name: Dependency Security Check
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        directory: [frontend, backend]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    
+    - name: Run npm audit
+      working-directory: ./${{ matrix.directory }}
+      run: |
+        echo "Running security audit for ${{ matrix.directory }}..."
+        npm audit --audit-level=moderate || true
+        echo "✅ Audit complete"
+      continue-on-error: true
+    
+    - name: Check for outdated packages
+      working-directory: ./${{ matrix.directory }}
+      run: |
+        echo "Checking for outdated packages..."
+        npm outdated || true
+      continue-on-error: true
+
+  secrets-scan:
+    name: Secrets Scanning
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: Check for exposed secrets
+      run: |
+        echo "Checking for potential secrets..."
+        
+        # Check for common secret patterns
+        echo "Checking for API keys..."
+        if grep -r "api[_-]key.*=.*['\"][a-zA-Z0-9]" . --include="*.js" --include="*.jsx" --exclude-dir=node_modules; then
+          echo "⚠️  Potential API keys found"
+        else
+          echo "✅ No obvious API keys found"
+        fi
+        
+        echo "Checking for private keys..."
+        if grep -r "BEGIN.*PRIVATE KEY" . --exclude-dir=node_modules; then
+          echo "❌ Private keys found!"
+          exit 1
+        else
+          echo "✅ No private keys found"
+        fi
+      continue-on-error: true

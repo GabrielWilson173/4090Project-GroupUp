@@ -1,0 +1,80 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  pr-validation:
+    name: PR Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Check PR title format
+      run: |
+        PR_TITLE="${{ github.event.pull_request.title }}"
+        echo "PR Title: $PR_TITLE"
+        
+        if [[ -z "$PR_TITLE" ]]; then
+          echo "❌ PR title is empty"
+          exit 1
+        fi
+        
+        echo "✅ PR title is valid"
+    
+    - name: Check for changed files
+      run: |
+        echo "Files changed in this PR:"
+        git diff --name-only origin/${{ github.base_ref }}...HEAD
+    
+    - name: Check for merge conflicts
+      run: |
+        git fetch origin ${{ github.base_ref }}
+        if git merge-tree $(git merge-base HEAD origin/${{ github.base_ref }}) HEAD origin/${{ github.base_ref }} | grep -q '<<<<<<<'; then
+          echo "❌ Merge conflicts detected"
+          exit 1
+        else
+          echo "✅ No merge conflicts"
+        fi
+
+  code-quality:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: Check for console.logs in frontend
+      run: |
+        echo "Checking for console.log statements..."
+        if grep -r "console\.log" frontend/src --include="*.js" --include="*.jsx" | grep -v "//.*console\.log"; then
+          echo "⚠️  Found console.log statements (consider removing for production)"
+        else
+          echo "✅ No console.log statements found"
+        fi
+      continue-on-error: true
+    
+    - name: Check for TODO comments
+      run: |
+        echo "Checking for TODO comments..."
+        TODO_COUNT=$(grep -r "TODO\|FIXME" . --include="*.js" --include="*.jsx" | wc -l || echo "0")
+        echo "Found $TODO_COUNT TODO/FIXME comments"
+        if [ "$TODO_COUNT" -gt 0 ]; then
+          echo "TODO/FIXME locations:"
+          grep -rn "TODO\|FIXME" . --include="*.js" --include="*.jsx" || true
+        fi
+      continue-on-error: true
+    
+    - name: Check file sizes
+      run: |
+        echo "Checking for large files..."
+        find . -type f -size +1M -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/build/*" | while read file; do
+          size=$(du -h "$file" | cut -f1)
+          echo "⚠️  Large file found: $file ($size)"
+        done

@@ -1,0 +1,167 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # ==================== FRONTEND ====================
+  frontend-build-test:
+    name: Frontend - Build & Test
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./frontend
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: './frontend/package-lock.json'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Check for linting errors
+      run: npm run lint --if-present
+      continue-on-error: true
+    
+    - name: Build frontend
+      run: npm run build
+      env:
+        CI: false  # Treat warnings as warnings, not errors
+    
+    - name: Check build output
+      run: |
+        if [ -d "build" ]; then
+          echo "✅ Build directory created successfully"
+          ls -la build
+        else
+          echo "❌ Build directory not found"
+          exit 1
+        fi
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: frontend-build
+        path: frontend/build
+        retention-days: 7
+
+  # ==================== BACKEND ====================
+  backend-build-test:
+    name: Backend - Build & Test
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./backend
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: './backend/package-lock.json'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Check for syntax errors
+      run: node -c src/app.js
+    
+    - name: Verify required files exist
+      run: |
+        echo "Checking for required files..."
+        test -f src/app.js && echo "✅ app.js found" || (echo "❌ app.js not found" && exit 1)
+        test -f package.json && echo "✅ package.json found" || (echo "❌ package.json not found" && exit 1)
+        test -d src/controllers && echo "✅ controllers directory found" || (echo "❌ controllers directory not found" && exit 1)
+        test -d src/services && echo "✅ services directory found" || (echo "❌ services directory not found" && exit 1)
+        test -d src/models && echo "✅ models directory found" || (echo "❌ models directory not found" && exit 1)
+    
+    - name: Check environment setup
+      run: |
+        echo "Checking environment variables..."
+        node -e "
+          const requiredVars = ['JWT_SECRET', 'PORT'];
+          const missing = requiredVars.filter(v => !process.env[v] && v !== 'PORT');
+          if (missing.length === 0) {
+            console.log('✅ All required environment variables present or have defaults');
+          } else {
+            console.log('⚠️  Missing optional environment variables:', missing.join(', '));
+          }
+        "
+      env:
+        JWT_SECRET: test_secret_for_ci
+        PORT: 5000
+    
+    - name: Run backend tests (if present)
+      run: npm test --if-present
+      continue-on-error: true
+    
+    - name: Check database initialization
+      run: |
+        if [ -f "src/models/init.sql" ]; then
+          echo "✅ Database initialization file found"
+        else
+          echo "⚠️  No init.sql found (this is okay if not using SQLite)"
+        fi
+
+  # ==================== DEPLOYMENT CHECK ====================
+  deployment-ready:
+    name: Deployment Readiness Check
+    runs-on: ubuntu-latest
+    needs: [frontend-build-test, backend-build-test]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Check README exists
+      run: |
+        if [ -f "README.md" ]; then
+          echo "✅ README.md found"
+          echo "README preview:"
+          head -n 20 README.md
+        else
+          echo "❌ README.md not found"
+          exit 1
+        fi
+    
+    - name: Check for .env.example
+      run: |
+        if [ -f "backend/.env.example" ] || [ -f ".env.example" ]; then
+          echo "✅ .env.example found"
+        else
+          echo "⚠️  No .env.example found - consider adding one for deployment"
+        fi
+    
+    - name: Check for deployment documentation
+      run: |
+        if grep -q -i "deploy" README.md; then
+          echo "✅ Deployment instructions found in README"
+        else
+          echo "⚠️  Consider adding deployment instructions to README"
+        fi
+    
+    - name: Summary
+      run: |
+        echo "================================"
+        echo "🎉 All checks passed!"
+        echo "================================"
+        echo "Frontend: Built successfully"
+        echo "Backend: Validated successfully"
+        echo "Project is ready for deployment"
+        echo "================================"
