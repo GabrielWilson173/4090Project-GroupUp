@@ -278,8 +278,8 @@ exports.updateClub = (userId, clubId, clubData) => {
                       cl.address,
                       cl.city,
                       cl.state,
-                      cl.zip_code
-                      cl.longitude
+                      cl.zip_code,
+                      cl.longitude,
                       cl.latitude
                     FROM ClubsBasic cb
                     LEFT JOIN ClubLocation cl ON cb.club_id = cl.club_ref
