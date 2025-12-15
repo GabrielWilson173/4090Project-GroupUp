@@ -252,15 +252,33 @@ function Dashboard() {
       {userClubs.length === 0 ? (
         <p>No upcoming meetings.</p>
       ) : (
-        <ul>
-          {userClubs.map((club) => (
-            club.meetup_times ? (
-              <li key={`mt-${club.id}`}>
-                <strong>{club.name}:</strong> {club.meetup_times}
-              </li>
-            ) : null
-          ))}
-        </ul>
+<ul>
+    {userClubs.map((club) => {
+      if (!club.meetup_times) return null;
+
+      const entries = club.meetup_times
+        .split(/, (?=(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday))/)
+        .map(e => e.trim())
+        .filter(Boolean);
+
+      return entries.map((entry, idx) => {
+        const isRecurring = entry.match(
+          /^(Mondays|Tuesdays|Wednesdays|Thursdays|Fridays|Saturdays|Sundays)/i
+        );
+
+        return (
+          <li key={`${club.id}-${idx}`}>
+            <strong>{club.name}:</strong>{' '}
+            {isRecurring ? (
+              <span>🔁 <em>Recurring</em> — {entry}</span>
+            ) : (
+              <span>📅 <em>One-Time</em> — {entry}</span>
+            )}
+          </li>
+        );
+      });
+    })}
+  </ul>
       )}
     </div>
     

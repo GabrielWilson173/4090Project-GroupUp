@@ -12,6 +12,13 @@ function Organizer() {
   const [clubMembers, setClubMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
 
+  // One-time meetup state
+const [oneTimeMeetup, setOneTimeMeetup] = useState({
+  date: '',
+  startTime: '',
+  endTime: ''
+});
+
   // Form state for creating a club
   const [clubForm, setClubForm] = useState({
     name: '',
@@ -131,21 +138,34 @@ function Organizer() {
       .join(', ');
   };
 
-  const parseMeetupTimes = (meetupTimesStr) => {
-    if (!meetupTimesStr) return [];
-    const days = meetupTimesStr.split(',').map(s => s.trim());
-    return days.map(dayStr => {
+const parseMeetupTimes = (meetupTimesStr) => {
+  if (!meetupTimesStr) return [];
+
+  const recurringDays = [
+    'Monday', 'Tuesday', 'Wednesday',
+    'Thursday', 'Friday', 'Saturday', 'Sunday'
+  ];
+
+  return meetupTimesStr
+    .split(',')
+    .map(s => s.trim())
+    //ONLY keep recurring entries
+    .filter(entry =>
+      recurringDays.some(day => entry.startsWith(day))
+    )
+    .map(dayStr => {
       const parts = dayStr.split(' ');
-      const day = parts[0].replace('s', ''); // Remove trailing 's'
+      if (parts.length < 2) return null;
+
+      const day = parts[0].replace('s', '');
       const times = parts[1].split('-');
-      
-      // Convert 12-hour format back to 24-hour format for time inputs
+      if (times.length !== 2) return null;
+
       const convert12to24 = (time12) => {
         const isPM = time12.toLowerCase().includes('pm');
         const isAM = time12.toLowerCase().includes('am');
         let timeNum = time12.replace(/am|pm/gi, '');
-        
-        // Check if it has minutes
+
         let hour, minute;
         if (timeNum.includes(':')) {
           [hour, minute] = timeNum.split(':').map(n => parseInt(n, 10));
@@ -153,21 +173,21 @@ function Organizer() {
           hour = parseInt(timeNum, 10);
           minute = 0;
         }
-        
-        // Convert to 24-hour
+
         if (isPM && hour !== 12) hour += 12;
         if (isAM && hour === 12) hour = 0;
-        
+
         return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
       };
-      
+
       return {
-        day: day,
+        day,
         startTime: convert12to24(times[0]),
         endTime: convert12to24(times[1])
       };
-    });
-  };
+    })
+    .filter(Boolean); // remove nulls
+};
 
   const openEditModal = (club) => {
     setEditForm({
@@ -209,7 +229,10 @@ const handleCreateClub = async (e) => {
 
   const [state, zip] = stateZipParts;
 
-  const formattedMeetupTimes = formatMeetupTimes();
+const formattedMeetupTimes =
+  meetupDays.length > 0
+    ? formatMeetupTimes()
+    : clubForm.meetup_times;
 
   const fullAddress = `${street}, ${city}, ${state} ${zip}`;
 
@@ -475,6 +498,84 @@ const handleEditClub = async (e) => {
 
     }
   };
+
+const formatOneTimeMeetup = () => {
+  if (!oneTimeMeetup.date || !oneTimeMeetup.startTime || !oneTimeMeetup.endTime) {
+    return '';
+  }
+
+  const dateObj = new Date(oneTimeMeetup.date);
+  const readableDate = dateObj.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  return `${readableDate} ${formatTime12Hour(oneTimeMeetup.startTime)}-${formatTime12Hour(oneTimeMeetup.endTime)}`;
+};
+
+const saveOneTimeMeetup = async () => {
+  if (!selectedClub) return;
+
+  const formatted = formatOneTimeMeetup();
+  if (!formatted) {
+    setToast({ message: 'Please complete date and time', type: 'error' });
+    return;
+  }
+
+  try {
+    const token = sessionStorage.getItem('token');
+
+    const formData = new FormData();
+
+    // 🔹 REQUIRED FIELDS (reuse existing values)
+    formData.append('name', selectedClub.name);
+    formData.append('address', selectedClub.address);
+    formData.append('city', selectedClub.city);
+    formData.append('state', selectedClub.state);
+    formData.append('zip_code', selectedClub.zip_code);
+    formData.append('type', selectedClub.type);
+    formData.append('description', selectedClub.description);
+
+    // 🔹 ONLY THING WE ARE ACTUALLY CHANGING
+    const combinedMeetupTimes = selectedClub.meetup_times
+  ? `${selectedClub.meetup_times}, ${formatted}`
+  : formatted;
+
+formData.append('meetup_times', combinedMeetupTimes);;
+
+    const response = await fetch(
+      `http://localhost:5000/api/organizer/edit-club/${selectedClub.id}`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formData
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to save meetup');
+    }
+
+    setToast({ message: 'One-time meetup saved!', type: 'success' });
+
+    // Update UI immediately
+    setSelectedClub({
+      ...selectedClub,
+      meetup_times: formatted
+    });
+
+    fetchMyClubs();
+
+  } catch (err) {
+    console.error('Save one-time meetup error:', err);
+    setToast({ message: 'Failed to save one-time meetup', type: 'error' });
+  }
+};
 
   if (loading) return <p>Loading your clubs...</p>;
 
@@ -1152,6 +1253,57 @@ const handleEditClub = async (e) => {
             <p style={{ marginBottom: '15px' }}>
               <strong>Members:</strong> {selectedClub.member_count || 0}
             </p>
+            <hr style={{ margin: '25px 0' }} />
+
+<h4>One-Time Meetup</h4>
+
+<div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+  <input
+    type="date"
+    value={oneTimeMeetup.date}
+    onChange={(e) =>
+      setOneTimeMeetup({ ...oneTimeMeetup, date: e.target.value })
+    }
+  />
+
+  <input
+    type="time"
+    value={oneTimeMeetup.startTime}
+    onChange={(e) =>
+      setOneTimeMeetup({ ...oneTimeMeetup, startTime: e.target.value })
+    }
+  />
+
+  <input
+    type="time"
+    value={oneTimeMeetup.endTime}
+    onChange={(e) =>
+      setOneTimeMeetup({ ...oneTimeMeetup, endTime: e.target.value })
+    }
+  />
+</div>
+
+<button
+  type="button"
+  onClick={saveOneTimeMeetup}
+
+  style={{
+    padding: '8px 16px',
+    background: '#6f42c1',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer'
+  }}
+>
+  + Create One-Time Meetup
+</button>
+
+{clubForm.meetup_times && (
+  <p style={{ marginTop: '10px', color: '#666' }}>
+    Preview: {clubForm.meetup_times}
+  </p>
+)}
             <button
               onClick={() => setSelectedClub(null)}
               style={{
