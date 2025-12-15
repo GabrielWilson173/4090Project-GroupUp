@@ -1,7 +1,31 @@
 import React, { useEffect, useState } from "react";
 import Toast from '../components/toast';
 
-function Clubs() {
+  async function geocodeAddress(address) {
+    const query = encodeURIComponent(address);
+
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${query}`,
+      {
+        headers: {
+          'User-Agent': 'GroupUp-Student-Project'
+        }
+      }
+    );
+
+    const data = await response.json();
+
+    if (!data || data.length === 0) {
+      return null;
+    }
+
+    return {
+      latitude: parseFloat(data[0].lat),
+      longitude: parseFloat(data[0].lon),
+    };
+  }
+
+  function Clubs() {
   const [clubs, setClubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -24,6 +48,19 @@ function Clubs() {
     comment: ''
   });
 
+  // Haversine formula to calculate distance between two coordinates in miles
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 3959; // Earth's radius in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; // Distance in miles
+  };
+
   // Search state
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -32,6 +69,8 @@ function Clubs() {
 
   // Track which clubs the current user has joined
   const [joinedClubs, setJoinedClubs] = useState([]);
+
+  const [userLocation, setUserLocation] = useState(null);
 
   useEffect(() => {
     async function fetchClubs() {
@@ -48,16 +87,46 @@ function Clubs() {
         ]);
 
         const clubsData = await clubsRes.json();
-        setClubs(clubsData);
 
         if (userRes.ok) {
           const userData = await userRes.json();
           const joined = userData.user.joined_clubs || [];
           setJoinedClubs(joined);
+
+          // Store user location in state
+          if (userData.user.latitude && userData.user.longitude) {
+            const userLoc = {
+              latitude: userData.user.latitude,
+              longitude: userData.user.longitude
+            };
+            setUserLocation(userLoc);
+
+            // Calculate distances for each club
+            const clubsWithDistance = clubsData.map(club => ({
+              ...club,
+              distance: club.latitude && club.longitude
+                ? calculateDistance(
+                    userLoc.latitude,
+                    userLoc.longitude,
+                    club.latitude,
+                    club.longitude
+                  )
+                : 9999 // Large number for clubs without coordinates
+            }));
+
+            // Sort by distance (closest first)
+            clubsWithDistance.sort((a, b) => a.distance - b.distance);
+            setClubs(clubsWithDistance);
+          } else {
+            // User has no location, just show clubs unsorted
+            setClubs(clubsData);
+          }
         } else {
           console.log("User not logged in - some features disabled");
+          setClubs(clubsData);
           setJoinedClubs([]);
         }
+
       } catch (error) {
         console.error("Failed to load clubs or user info:", error);
       } finally {
@@ -243,6 +312,13 @@ function Clubs() {
             <p style={{ margin: "8px 0" }}>
               <strong>Meetups:</strong> {club.meetup_times || "None listed"}
             </p>
+
+            {/* Add this */}
+            {club.distance && club.distance < 9999 && (
+              <p style={{ margin: "8px 0", color: "#666", fontSize: "14px" }}>
+                📍 {club.distance.toFixed(1)} miles away
+              </p>
+            )}
 
             {/* Feedback link */}
             <p style={{ margin: "8px 0" }}>

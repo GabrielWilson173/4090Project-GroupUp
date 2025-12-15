@@ -18,9 +18,7 @@ exports.fetchMyClubs = (userId) => {
         cl.address,
         cl.city,
         cl.state,
-        cl.zip_code,
-        cl.latitude,
-        cl.longitude
+        cl.zip_code
       FROM ClubsBasic cb
       LEFT JOIN ClubLocation cl ON cb.club_id = cl.club_ref
       INNER JOIN ClubOwnership co ON cb.club_id = co.club_ref
@@ -43,31 +41,36 @@ exports.fetchMyClubs = (userId) => {
  */
 exports.createNewClub = (userId, clubData) => {
   return new Promise((resolve, reject) => {
-    const { name, address, city, state, zip_code, type, description, meetup_times, image_url, longitude, latitude } = clubData;
+    const {
+      name,
+      address,
+      city,
+      state,
+      zip_code,
+      type,
+      latitude,
+      longitude,
+      description,
+      meetup_times,
+      image_url
+    } = clubData;
 
-    // Validate required fields
-    if (!name || !address || !city || !state || !zip_code || !type || !description || !longitude || !latitude) {
-      if (!name || !type || !description) {
-        return reject({status: 400, message: 'Missing Required Fields: Club Info'})
-      }
-      if (!address || !city || !state || !zip_code) {
-        return reject({status: 400, message: 'Missing Required Fields: Club City'})
-      }
-      if (!longitude || !latitude) {
-        return reject({status: 400, message: 'Missing Required Fields: Club Geoposition'})
-      }
-      return reject({ status: 400, message: 'Missing Required Fields: Unknown' });
+    // Validate required fields (address only)
+    if (!name || !address || !city || !state || !zip_code || !type || !description) {
+      return reject({
+        status: 400,
+        message: 'Missing required fields'
+      });
     }
 
-    // Start transaction
     db.serialize(() => {
       db.run('BEGIN TRANSACTION');
 
-      // Insert into ClubsBasic
-        const insertClubQuery = `
-        INSERT INTO ClubsBasic (name, description, club_type, image_url, meetup_times, member_count)
+      const insertClubQuery = `
+        INSERT INTO ClubsBasic
+          (name, description, club_type, image_url, meetup_times, member_count)
         VALUES (?, ?, ?, ?, ?, 1)
-        `;
+      `;
 
       db.run(
         insertClubQuery,
@@ -75,87 +78,70 @@ exports.createNewClub = (userId, clubData) => {
         function (err) {
           if (err) {
             db.run('ROLLBACK');
-            console.error('DB error inserting club:', err);
             return reject({ status: 500, message: 'DB error creating club', err });
           }
 
           const clubId = this.lastID;
 
-          // Insert into ClubLocation
           const insertLocationQuery = `
-            INSERT INTO ClubLocation (club_ref, address, city, state, zip_code, latitude, longitude)
+            INSERT INTO ClubLocation
+              (club_ref, address, city, state, zip_code, latitude, longitude)
             VALUES (?, ?, ?, ?, ?, ?, ?)
           `;
 
           db.run(
             insertLocationQuery,
-            [clubId, address, city, state, zip_code, longitude, latitude],
-            function (err) {
+            [clubId, address, city, state, zip_code, latitude || null, longitude || null],
+            (err) => {
               if (err) {
                 db.run('ROLLBACK');
-                console.error('DB error inserting location:', err);
                 return reject({ status: 500, message: 'DB error creating club location', err });
               }
 
-              // Insert into ClubOwnership
               const insertOwnershipQuery = `
                 INSERT INTO ClubOwnership (user_ref, club_ref, created_at)
                 VALUES (?, ?, datetime('now'))
               `;
 
-              db.run(
-                insertOwnershipQuery,
-                [userId, clubId],
-                function (err) {
+              db.run(insertOwnershipQuery, [userId, clubId], (err) => {
+                if (err) {
+                  db.run('ROLLBACK');
+                  return reject({ status: 500, message: 'DB error assigning ownership', err });
+                }
+
+                const insertMemberQuery = `
+                  INSERT INTO ClubMembership (user_ref, club_ref, joined_at)
+                  VALUES (?, ?, datetime('now'))
+                `;
+
+                db.run(insertMemberQuery, [userId, clubId], (err) => {
                   if (err) {
                     db.run('ROLLBACK');
-                    console.error('DB error inserting ownership:', err);
-                    return reject({ status: 500, message: 'DB error assigning ownership', err });
+                    return reject({ status: 500, message: 'DB error adding creator as member', err });
                   }
 
-                  // Insert creator as first member
-                  const insertMemberQuery = `
-                    INSERT INTO ClubMembership (user_ref, club_ref, joined_at)
-                    VALUES (?, ?, datetime('now'))
-                  `;
-
-                  db.run(
-                    insertMemberQuery,
-                    [userId, clubId],
-                    function (err) {
-                      if (err) {
-                        db.run('ROLLBACK');
-                        console.error('DB error inserting membership:', err);
-                        return reject({ status: 500, message: 'DB error adding creator as member', err });
-                      }
-
-                      // Commit transaction
-                      db.run('COMMIT', (err) => {
-                        if (err) {
-                          db.run('ROLLBACK');
-                          return reject({ status: 500, message: 'DB error committing transaction', err });
-                        }
-
-                        resolve({
-                          id: clubId,
-                          name,
-                          description,
-                          type,
-                          image_url,
-                          meetup_times,
-                          member_count: 1,
-                          address,
-                          city,
-                          state,
-                          zip_code,
-                          longitude,
-                          latitude
-                        });
-                      });
+                  db.run('COMMIT', (err) => {
+                    if (err) {
+                      db.run('ROLLBACK');
+                      return reject({ status: 500, message: 'DB error committing transaction', err });
                     }
-                  );
-                }
-              );
+
+                    resolve({
+                      id: clubId,
+                      name,
+                      description,
+                      type,
+                      image_url,
+                      meetup_times,
+                      member_count: 1,
+                      address,
+                      city,
+                      state,
+                      zip_code
+                    });
+                  });
+                });
+              });
             }
           );
         }
@@ -164,9 +150,6 @@ exports.createNewClub = (userId, clubData) => {
   });
 };
 
-/**
- * Update an existing club
- */
 exports.updateClub = (userId, clubId, clubData) => {
   return new Promise((resolve, reject) => {
     const {
@@ -177,23 +160,20 @@ exports.updateClub = (userId, clubId, clubData) => {
       zip_code,
       type,
       description,
-      longitude,
-      latitude,
       meetup_times,
-      image_url
+      image_url,
+      latitude,
+      longitude
     } = clubData;
 
-    const normalizedMeetupTimes =
-    meetup_times && meetup_times.trim() !== '' ? meetup_times : undefined;
-
     // Validate required fields
-    if (!name || !address || !city || !state || !zip_code || !longitude || !latitude || !type || !description) {
+    if (!name || !address || !city || !state || !zip_code || !type || !description) {
       return reject({ status: 400, message: 'Missing required fields' });
     }
 
-    // First verify the user owns this club
+    // Verify ownership
     db.get(
-      'SELECT * FROM ClubOwnership WHERE club_ref = ? AND user_ref = ?',
+      'SELECT 1 FROM ClubOwnership WHERE club_ref = ? AND user_ref = ?',
       [clubId, userId],
       (err, ownership) => {
         if (err) {
@@ -203,30 +183,21 @@ exports.updateClub = (userId, clubId, clubData) => {
           return reject({ status: 403, message: 'You do not own this club' });
         }
 
-        // Start transaction
         db.serialize(() => {
           db.run('BEGIN TRANSACTION');
 
-          // Build update query for ClubsBasic
+          // --- Update ClubsBasic ---
           let updateClubQuery = `
             UPDATE ClubsBasic
             SET name = ?, description = ?, club_type = ?
           `;
-          let clubParams = [name, description, type];
+          const clubParams = [name, description, type];
 
-          // Normalize meetup_times: treat empty string as "no update"
-          let normalizedMeetupTimes = null;
           if (meetup_times && meetup_times.trim() !== '') {
-            normalizedMeetupTimes = meetup_times;
-          }
-
-          // Only update meetup_times if provided
-          if (normalizedMeetupTimes !== null) {
             updateClubQuery += ', meetup_times = ?';
-            clubParams.push(normalizedMeetupTimes);
+            clubParams.push(meetup_times);
           }
 
-          // Only update image if a new one was uploaded
           if (image_url) {
             updateClubQuery += ', image_url = ?';
             clubParams.push(image_url);
@@ -235,73 +206,86 @@ exports.updateClub = (userId, clubId, clubData) => {
           updateClubQuery += ' WHERE club_id = ?';
           clubParams.push(clubId);
 
-          db.run(updateClubQuery, clubParams, function (err) {
+          db.run(updateClubQuery, clubParams, (err) => {
             if (err) {
               db.run('ROLLBACK');
               return reject({ status: 500, message: 'DB error updating club', err });
             }
 
-            // Update ClubLocation
-            const updateLocationQuery = `
+            // --- Update ClubLocation (address + optional coordinates) ---
+            let updateLocationQuery = `
               UPDATE ClubLocation
-              SET address = ?, city = ?, state = ?, zip_code = ?, longitude = ?, latitude = ?
-              WHERE club_ref = ?
+              SET address = ?, city = ?, state = ?, zip_code = ?
             `;
+            const locationParams = [address, city, state, zip_code];
 
-            db.run(
-              updateLocationQuery,
-              [address, city, state, zip_code, longitude, latitude, clubId],
-              function (err) {
+            if (latitude !== undefined && latitude !== null) {
+              updateLocationQuery += ', latitude = ?';
+              locationParams.push(latitude);
+            }
+
+            if (longitude !== undefined && longitude !== null) {
+              updateLocationQuery += ', longitude = ?';
+              locationParams.push(longitude);
+            }
+
+            updateLocationQuery += ' WHERE club_ref = ?';
+            locationParams.push(clubId);
+
+            db.run(updateLocationQuery, locationParams, (err) => {
+              if (err) {
+                db.run('ROLLBACK');
+                return reject({ status: 500, message: 'DB error updating club location', err });
+              }
+
+              db.run('COMMIT', (err) => {
                 if (err) {
                   db.run('ROLLBACK');
-                  return reject({ status: 500, message: 'DB error updating club location', err });
+                  return reject({ status: 500, message: 'DB error committing transaction', err });
                 }
 
-                // Commit transaction
-                db.run('COMMIT', (err) => {
-                  if (err) {
-                    db.run('ROLLBACK');
-                    return reject({ status: 500, message: 'DB error committing transaction', err });
-                  }
-
-                  // Fetch updated club data
-                  db.get(
-                    `
-                    SELECT 
-                      cb.club_id as id,
-                      cb.name,
-                      cb.description,
-                      cb.club_type as type,
-                      cb.image_url,
-                      cb.meetup_times,
-                      cb.member_count,
-                      cl.address,
-                      cl.city,
-                      cl.state,
-                      cl.zip_code,
-                      cl.longitude,
-                      cl.latitude
-                    FROM ClubsBasic cb
-                    LEFT JOIN ClubLocation cl ON cb.club_id = cl.club_ref
-                    WHERE cb.club_id = ?
-                    `,
-                    [clubId],
-                    (err, club) => {
-                      if (err) {
-                        return reject({ status: 500, message: 'DB error fetching updated club', err });
-                      }
-                      resolve(club);
+                // --- Fetch updated club ---
+                db.get(
+                  `
+                  SELECT 
+                    cb.club_id AS id,
+                    cb.name,
+                    cb.description,
+                    cb.club_type AS type,
+                    cb.image_url,
+                    cb.meetup_times,
+                    cb.member_count,
+                    cl.address,
+                    cl.city,
+                    cl.state,
+                    cl.zip_code,
+                    cl.latitude,
+                    cl.longitude
+                  FROM ClubsBasic cb
+                  LEFT JOIN ClubLocation cl ON cb.club_id = cl.club_ref
+                  WHERE cb.club_id = ?
+                  `,
+                  [clubId],
+                  (err, club) => {
+                    if (err) {
+                      return reject({
+                        status: 500,
+                        message: 'DB error fetching updated club',
+                        err
+                      });
                     }
-                  );
-                });
-              }
-            );
+                    resolve(club);
+                  }
+                );
+              });
+            });
           });
         });
       }
     );
   });
 };
+
 
 /**
  * Delete a club (only if user is owner)

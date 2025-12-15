@@ -23,6 +23,12 @@ CREATE TABLE UserAccounts (
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
+    address TEXT,
+    city TEXT,
+    state TEXT,
+    zip_code TEXT,
+    latitude REAL,
+    longitude REAL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

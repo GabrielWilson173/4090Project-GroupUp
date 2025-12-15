@@ -11,6 +11,7 @@ frontend/node_modules/
 frontend/build/
 backend/*.db
 backend/database/*.db
+dist/                           
 
 # ========================
 # Uploads
@@ -24,6 +25,8 @@ backend/uploads/*
 .env
 .env.local
 .env.*.local
+.env.production              
+.env.development             
 
 # ========================
 # Logs
@@ -32,6 +35,7 @@ backend/uploads/*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*             
 
 # ========================
 # OS / IDE specific
@@ -44,8 +48,26 @@ Thumbs.db
 *.ntvs*
 *.njsproj
 *.sln
+*.swp                        
+*.swo                        
+*~                           
+
+# ========================
+# Testing
+# ========================
+coverage/
+.nyc_output/                 
+*.lcov                       
+
+# ========================
+# Temporary files
+# ========================
+*.tmp
+*.temp
+.cache/                      
 
 # ========================
 # Others
 # ========================
-coverage/
+.eslintcache                 
+.stylelintcache              

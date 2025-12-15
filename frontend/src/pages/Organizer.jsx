@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Toast from '../components/toast';
 
-
-
 function Organizer() {
   const [myClubs, setMyClubs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,6 +12,51 @@ function Organizer() {
   const [clubMembers, setClubMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
 
+  // ZIP-based fallback (optional but recommended)
+  const getApproximateCoordinates = (address) => {
+    const zipMatch = address.match(/\b\d{5}\b/);
+    if (!zipMatch) return { lat: 37.9513, lng: -91.7713 }; // Rolla fallback
+
+    const zip = parseInt(zipMatch[0], 10);
+
+    if (zip >= 63000 && zip <= 63999) return { lat: 38.6270, lng: -90.1994 };
+    if (zip >= 64000 && zip <= 64999) return { lat: 39.0997, lng: -94.5786 };
+    if (zip >= 65000 && zip <= 65899) return { lat: 37.2090, lng: -93.2923 };
+
+    return { lat: 37.9513, lng: -91.7713 };
+  };
+
+  const geocodeAddress = async (address) => {
+    try {
+      await new Promise(r => setTimeout(r, 1000)); // rate limit safety
+
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&countrycodes=us&limit=1`;
+
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'GroupUp-ClubApp/1.0 (educational-project)',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!res.ok) return getApproximateCoordinates(address);
+
+      const data = await res.json();
+
+      if (data?.length) {
+        return {
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon)
+        };
+      }
+
+      return getApproximateCoordinates(address);
+    } catch (err) {
+      console.error('Geocoding failed:', err);
+      return getApproximateCoordinates(address);
+    }
+  };
+
   // Form state for creating a club
   const [clubForm, setClubForm] = useState({
     name: '',
@@ -23,8 +66,6 @@ function Organizer() {
     zip_code: '',
     type: 'Biking',
     description: '',
-    longitude: '',
-    latitude: '',
     meetup_times: '',
     image: null
   });
@@ -36,8 +77,6 @@ function Organizer() {
     type: 'Biking',
     description: '',
     meetup_times: '',
-    longitude: '',
-    latitude: '',
     image: null
   });
 
@@ -180,8 +219,6 @@ function Organizer() {
       name: club.name,
       address: `${club.address}, ${club.city}, ${club.state} ${club.zip_code}`,
       type: club.type,
-      longitude: club.longitude,
-      latitude: club.latitude,
       description: club.description,
       meetup_times: club.meetup_times,
       image: null
@@ -190,147 +227,203 @@ function Organizer() {
     setShowEditModal(true);
   };
 
-  const handleCreateClub = async (e) => {
-    e.preventDefault();
-    
-    // Parse address
-    const addressParts = clubForm.address.split(',').map(s => s.trim());
-    if (addressParts.length !== 3) {
-      setToast({ message: 'Please enter address in format: Street Address, City, State ZIP', type: 'error' });
-      return;
-    }
+const handleCreateClub = async (e) => {
+  e.preventDefault();
 
-    const street = addressParts[0];
-    const city = addressParts[1];
-    const stateZip = addressParts[2].split(' ');
-    const state = stateZip[0];
-    const zip = stateZip[1];
+  // Parse address: "Street, City, State ZIP"
+  const addressParts = clubForm.address.split(',').map(s => s.trim());
+  if (addressParts.length !== 3) {
+    setToast({
+      message: 'Please enter address in format: Street Address, City, State ZIP',
+      type: 'error'
+    });
+    return;
+  }
 
-    const formattedMeetupTimes = formatMeetupTimes();
+  const street = addressParts[0];
+  const city = addressParts[1];
 
-    const formData = new FormData();
-    formData.append('name', clubForm.name);
-    formData.append('address', street);
-    formData.append('city', city);
-    formData.append('state', state);
-    formData.append('zip_code', zip);
-    formData.append('type', clubForm.type);
-    formData.append('description', clubForm.description);
-    formData.append('meetup_times', formattedMeetupTimes);
-    formData.append('longitude', clubForm.longitude);
-    formData.append('latitude', clubForm.latitude);
-    if (clubForm.image) {
-      formData.append('image', clubForm.image);
-    }
+  const stateZipParts = addressParts[2].split(/\s+/);
+  if (stateZipParts.length !== 2) {
+    setToast({
+      message: 'State and ZIP must be in format: "ST 12345"',
+      type: 'error'
+    });
+    return;
+  }
 
-    try {
-      const token = sessionStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/organizer/create-club', {
+  const [state, zip] = stateZipParts;
+
+  const formattedMeetupTimes = formatMeetupTimes();
+
+  const fullAddress = `${street}, ${city}, ${state} ${zip}`;
+
+  let coordinates;
+  try {
+    coordinates = await geocodeAddress(fullAddress);
+  } catch {
+    setToast({
+      message: 'Could not verify club location',
+      type: 'error'
+    });
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('name', clubForm.name);
+  formData.append('address', street);
+  formData.append('city', city);
+  formData.append('state', state);
+  formData.append('zip_code', zip);
+  formData.append('latitude', coordinates.lat);
+  formData.append('longitude', coordinates.lng);
+  formData.append('type', clubForm.type);
+  formData.append('description', clubForm.description);
+  formData.append('meetup_times', formattedMeetupTimes);
+  
+
+  if (clubForm.image) {
+    formData.append('image', clubForm.image);
+  }
+
+  try {
+    const token = sessionStorage.getItem('token');
+    const response = await fetch(
+      'http://localhost:5000/api/organizer/create-club',
+      {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`
         },
         body: formData
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setToast({ message: 'Club created successfully!', type: 'success' });
-        setShowCreateModal(false);
-        setClubForm({
-          name: '',
-          address: '',
-          city: '',
-          state: '',
-          zip_code: '',
-          type: 'Biking',
-          description: '',
-          meetup_times: '',
-          longitude: '',
-          latitude: '',
-          image: null
-        });
-        setMeetupDays([]);
-        fetchMyClubs(); // Refresh the list
-      } else {
-        setToast({ message: 'Failed to modify club', type: 'error' });
       }
-    } catch (error) {
-      console.error('Failed to create club:', error);
-      setToast({ message: 'Failed to delete club. See consol for details', type: 'error' });
-    }
-  };
+    );
 
-  const handleEditClub = async (e) => {
-    e.preventDefault();
-    
-    // Parse address
-    const addressParts = editForm.address.split(',').map(s => s.trim());
-    if (addressParts.length !== 3) {
-      setToast({ message: 'Please enter address in format: Street Address, City, State ZIP', type: 'error' });
+    const data = await response.json();
+
+    if (!response.ok) {
+      setToast({
+        message: data.message || 'Failed to create club',
+        type: 'error'
+      });
       return;
     }
 
-    const street = addressParts[0];
-    const city = addressParts[1];
-    const stateZip = addressParts[2].split(' ');
-    const state = stateZip[0];
-    const zip = stateZip[1];
+    setToast({ message: 'Club created successfully!', type: 'success' });
+    setShowCreateModal(false);
 
-    const formattedMeetupTimes = formatEditMeetupTimes();
+    setClubForm({
+      name: '',
+      address: '',
+      city: '',
+      state: '',
+      zip_code: '',
+      type: 'Biking',
+      description: '',
+      meetup_times: '',
+      image: null
+    });
 
-    const formData = new FormData();
-    formData.append('name', editForm.name);
-    formData.append('address', street);
-    formData.append('city', city);
-    formData.append('state', state);
-    formData.append('zip_code', zip);
-    formData.append('type', editForm.type);
-    formData.append('description', editForm.description);
-    formData.append('meetup_times', formattedMeetupTimes);
-    formData.append('longitude', editForm.longitude);
-    formData.append('latitude', editForm.latitude);
-    if (editForm.image) {
-      formData.append('image', editForm.image);
-    }
+    setMeetupDays([]);
+    fetchMyClubs();
+  } catch (error) {
+    console.error('Failed to create club:', error);
+    setToast({
+      message: 'Failed to create club. See console for details.',
+      type: 'error'
+    });
+  }
+};
 
-    try {
-      const token = sessionStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/organizer/edit-club/${selectedClub.id}`, {
+  const handleEditClub = async (e) => {
+  e.preventDefault();
+
+  const addressParts = editForm.address.split(',').map(s => s.trim());
+  if (addressParts.length !== 3) {
+    setToast({
+      message: 'Please enter address in format: Street Address, City, State ZIP',
+      type: 'error'
+    });
+    return;
+  }
+
+  const street = addressParts[0];
+  const city = addressParts[1];
+
+  const stateZipParts = addressParts[2].split(/\s+/);
+  if (stateZipParts.length !== 2) {
+    setToast({
+      message: 'State and ZIP must be in format: "ST 12345"',
+      type: 'error'
+    });
+    return;
+  }
+
+  const [state, zip] = stateZipParts;
+
+  const formattedMeetupTimes = formatEditMeetupTimes();
+
+  const formData = new FormData();
+  formData.append('name', editForm.name);
+  formData.append('address', street);
+  formData.append('city', city);
+  formData.append('state', state);
+  formData.append('zip_code', zip);
+  formData.append('type', editForm.type);
+  formData.append('description', editForm.description);
+  formData.append('meetup_times', formattedMeetupTimes);
+
+  if (editForm.image) {
+    formData.append('image', editForm.image);
+  }
+
+  try {
+    const token = sessionStorage.getItem('token');
+    const response = await fetch(
+      `http://localhost:5000/api/organizer/edit-club/${selectedClub.id}`,
+      {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`
         },
         body: formData
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setToast({ message: 'Club updated successfully!', type: 'success' });
-        setShowEditModal(false);
-        setEditForm({
-          name: '',
-          address: '',
-          type: 'Biking',
-          description: '',
-          meetup_times: '',
-          longitude: '',
-          latitude: '',
-          image: null
-        });
-        setEditMeetupDays([]);
-        setSelectedClub(null);
-        fetchMyClubs(); // Refresh the list
-      } else {
-        setToast({ message: 'Failed to update club', type: 'error' });
-        
       }
-    } catch (error) {
-      console.error('Failed to update club:', error);
-      setToast({ message: 'Failed to update club. See consol for details.', type: 'error' });
+    );
 
+    const data = await response.json();
+
+    if (!response.ok) {
+      setToast({
+        message: data.message || 'Failed to update club',
+        type: 'error'
+      });
+      return;
     }
-  };
+
+    setToast({ message: 'Club updated successfully!', type: 'success' });
+    setShowEditModal(false);
+
+    setEditForm({
+      name: '',
+      address: '',
+      type: 'Biking',
+      description: '',
+      meetup_times: '',
+      image: null
+    });
+
+    setEditMeetupDays([]);
+    setSelectedClub(null);
+    fetchMyClubs();
+  } catch (error) {
+    console.error('Failed to update club:', error);
+    setToast({
+      message: 'Failed to update club. See console for details.',
+      type: 'error'
+    });
+  }
+};
+
     const handleDeleteClub = async (clubId) => {
     if (!window.confirm('Are you sure you want to delete this club? This action cannot be undone.')) {
       return;
@@ -510,36 +603,6 @@ function Organizer() {
                   required
                 />
                 <small style={{ color: '#666' }}>Format: Street Address, City, State ZIP</small>
-              </div>
-
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px' }}>
-                  <strong>Longitude:</strong>
-                </label>
-                <input
-                  type="real"
-                  placeholder="Longitude"
-                  value={clubForm.longitude}
-                  onChange={(e) => setClubForm({ ...clubForm, longitude: e.target.value })}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                  required
-                />
-                <small style={{ color: '#666' }}>Format: 00 00.00</small>
-              </div>
-              
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px' }}>
-                  <strong>Latitude:</strong>
-                </label>
-                <input
-                  type="real"
-                  placeholder="Latitude"
-                  value={clubForm.latitude}
-                  onChange={(e) => setClubForm({ ...clubForm, latitude: e.target.value })}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                  required
-                />
-                <small style={{ color: '#666' }}>Format: 00 00.00</small>
               </div>
 
               <div style={{ marginBottom: '15px' }}>
@@ -776,36 +839,6 @@ function Organizer() {
                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', minHeight: '80px' }}
                   required
                 />
-              </div>
-
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px' }}>
-                  <strong>Longitude:</strong>
-                </label>
-                <input
-                  type="real"
-                  placeholder="00 00.00"
-                  value={editForm.longitude}
-                  onChange={(e) => setEditForm({ ...editForm, longitude: e.target.value })}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                  required
-                />
-                <small style={{ color: '#666' }}>Format: 00 00.00</small>
-              </div>
-              
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px' }}>
-                  <strong>Latitude:</strong>
-                </label>
-                <input
-                  type="real"
-                  placeholder="00 00.00"
-                  value={editForm.latitude}
-                  onChange={(e) => setEditForm({ ...editForm, latitude: e.target.value })}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                  required
-                />
-                <small style={{ color: '#666' }}>Format: 00 00.00</small>
               </div>
 
               <div style={{ marginBottom: '15px' }}>
@@ -1094,12 +1127,6 @@ function Organizer() {
             </p>
             <p style={{ marginBottom: '10px' }}>
               <strong>Meetup Times:</strong> {selectedClub.meetup_times || 'None listed'}
-            </p>
-            <p style={{ marginBottom: '10px' }}>
-              <strong>Longitude:</strong> {selectedClub.longitude || 'None listed'}
-            </p>
-            <p style={{ marginBottom: '10px' }}>
-              <strong>Latitude: </strong> {selectedClub.latitude || 'None listed'}
             </p>
             <p style={{ marginBottom: '15px' }}>
               <strong>Members:</strong> {selectedClub.member_count || 0}

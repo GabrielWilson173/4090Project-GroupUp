@@ -6,7 +6,7 @@ const SALT_ROUNDS = 10;
 const JWT_SECRET = process.env.JWT_SECRET || 'replace_this_with_strong_secret';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
-async function registerUser({ name, email, password }) {
+async function registerUser({ name, email, password, address, city, state, zip_code, latitude, longitude }) {
   if (!name || !email || !password) {
     throw { status: 400, message: 'name, email and password required' };
   }
@@ -26,8 +26,8 @@ async function registerUser({ name, email, password }) {
       const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
 
       db.run(
-        'INSERT INTO UserAccounts (name, email, password_hash) VALUES (?, ?, ?)',
-        [name, email, password_hash],
+        'INSERT INTO UserAccounts (name, email, password_hash, address, city, state, zip_code, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [name, email, password_hash, address || null, city || null, state || null, zip_code || null, latitude || null, longitude || null],
         function (err) {
           if (err) {
             console.error("[registerUser] DB error inserting user:", err);
@@ -47,7 +47,9 @@ async function registerUser({ name, email, password }) {
             user: {
               id: user_id,
               name,
-              email
+              email,
+              latitude: latitude || null,
+              longitude: longitude || null
             }
           });
         }
@@ -64,7 +66,7 @@ async function loginUser({ email, password }) {
   return new Promise((resolve, reject) => {
 
     db.get(
-      'SELECT user_id, name, email, password_hash FROM UserAccounts WHERE email = ?',
+      'SELECT user_id, name, email, password_hash, latitude, longitude FROM UserAccounts WHERE email = ?',
       [email],
       async (err, row) => {
         if (err) {
@@ -91,7 +93,9 @@ async function loginUser({ email, password }) {
           user: {
             id: row.user_id,
             name: row.name,
-            email: row.email
+            email: row.email,
+            latitude: row.latitude,
+            longitude: row.longitude
           }
         });
       }
@@ -103,7 +107,7 @@ async function getCurrentUser(userId) {
   return new Promise((resolve, reject) => {
 
     db.get(
-      'SELECT user_id, name, email, created_at FROM UserAccounts WHERE user_id = ?',
+      'SELECT user_id, name, email, address, city, state, zip_code, latitude, longitude, created_at FROM UserAccounts WHERE user_id = ?',
       [userId],
       (err, row) => {
         if (err) {
@@ -132,6 +136,12 @@ async function getCurrentUser(userId) {
               id: row.user_id,
               name: row.name,
               email: row.email,
+              address: row.address,
+              city: row.city,
+              state: row.state,
+              zip_code: row.zip_code,
+              latitude: row.latitude,
+              longitude: row.longitude,
               created_at: row.created_at,
               joined_clubs
             });
