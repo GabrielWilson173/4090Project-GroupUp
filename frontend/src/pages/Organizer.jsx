@@ -12,51 +12,6 @@ function Organizer() {
   const [clubMembers, setClubMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
 
-  // ZIP-based fallback (optional but recommended)
-  const getApproximateCoordinates = (address) => {
-    const zipMatch = address.match(/\b\d{5}\b/);
-    if (!zipMatch) return { lat: 37.9513, lng: -91.7713 }; // Rolla fallback
-
-    const zip = parseInt(zipMatch[0], 10);
-
-    if (zip >= 63000 && zip <= 63999) return { lat: 38.6270, lng: -90.1994 };
-    if (zip >= 64000 && zip <= 64999) return { lat: 39.0997, lng: -94.5786 };
-    if (zip >= 65000 && zip <= 65899) return { lat: 37.2090, lng: -93.2923 };
-
-    return { lat: 37.9513, lng: -91.7713 };
-  };
-
-  const geocodeAddress = async (address) => {
-    try {
-      await new Promise(r => setTimeout(r, 1000)); // rate limit safety
-
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&countrycodes=us&limit=1`;
-
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': 'GroupUp-ClubApp/1.0 (educational-project)',
-          'Accept': 'application/json'
-        }
-      });
-
-      if (!res.ok) return getApproximateCoordinates(address);
-
-      const data = await res.json();
-
-      if (data?.length) {
-        return {
-          lat: parseFloat(data[0].lat),
-          lng: parseFloat(data[0].lon)
-        };
-      }
-
-      return getApproximateCoordinates(address);
-    } catch (err) {
-      console.error('Geocoding failed:', err);
-      return getApproximateCoordinates(address);
-    }
-  };
-
   // Form state for creating a club
   const [clubForm, setClubForm] = useState({
     name: '',
@@ -335,7 +290,58 @@ const handleCreateClub = async (e) => {
   }
 };
 
-  const handleEditClub = async (e) => {
+const getApproximateCoordinates = (address) => {
+  const zipMatch = address.match(/\b\d{5}\b/);
+  if (!zipMatch) {
+    return { lat: 37.9513, lng: -91.7713 };
+  }
+
+  const zip = parseInt(zipMatch[0]);
+
+  if (zip >= 63000 && zip <= 63999) {
+    return { lat: 38.6270, lng: -90.1994 };
+  } else if (zip >= 64000 && zip <= 64999) {
+    return { lat: 39.0997, lng: -94.5786 };
+  } else if (zip >= 65000 && zip <= 65899) {
+    return { lat: 37.2090, lng: -93.2923 };
+  }
+
+  return { lat: 37.9513, lng: -91.7713 };
+};
+
+const geocodeAddress = async (address) => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&countrycodes=us&limit=1`;
+
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'GroupUp-ClubApp/1.0 (educational-project)',
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      return getApproximateCoordinates(address);
+    }
+
+    const data = await response.json();
+
+    if (data && data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon)
+      };
+    }
+
+    return getApproximateCoordinates(address);
+  } catch {
+    return getApproximateCoordinates(address);
+  }
+};
+
+const handleEditClub = async (e) => {
   e.preventDefault();
 
   const addressParts = editForm.address.split(',').map(s => s.trim());
@@ -360,6 +366,17 @@ const handleCreateClub = async (e) => {
   }
 
   const [state, zip] = stateZipParts;
+  const fullAddress = `${street}, ${city}, ${state} ${zip}`;
+
+  // 🔹 GEOCODE UPDATED ADDRESS
+  const coords = await geocodeAddress(fullAddress);
+  if (!coords) {
+    setToast({
+      message: 'Could not determine location for this address',
+      type: 'error'
+    });
+    return;
+  }
 
   const formattedMeetupTimes = formatEditMeetupTimes();
 
@@ -369,6 +386,8 @@ const handleCreateClub = async (e) => {
   formData.append('city', city);
   formData.append('state', state);
   formData.append('zip_code', zip);
+  formData.append('latitude', coords.lat);
+  formData.append('longitude', coords.lng);
   formData.append('type', editForm.type);
   formData.append('description', editForm.description);
   formData.append('meetup_times', formattedMeetupTimes);
@@ -415,6 +434,7 @@ const handleCreateClub = async (e) => {
     setEditMeetupDays([]);
     setSelectedClub(null);
     fetchMyClubs();
+
   } catch (error) {
     console.error('Failed to update club:', error);
     setToast({
@@ -423,6 +443,7 @@ const handleCreateClub = async (e) => {
     });
   }
 };
+
 
     const handleDeleteClub = async (clubId) => {
     if (!window.confirm('Are you sure you want to delete this club? This action cannot be undone.')) {

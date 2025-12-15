@@ -1,34 +1,35 @@
 import React, { useEffect, useState } from "react";
-import Toast from '../components/toast';
+import Toast from "../components/toast";
 
-  async function geocodeAddress(address) {
-    const query = encodeURIComponent(address);
+async function geocodeAddress(address) {
+  const query = encodeURIComponent(address);
 
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${query}`,
-      {
-        headers: {
-          'User-Agent': 'GroupUp-Student-Project'
-        }
-      }
-    );
-
-    const data = await response.json();
-
-    if (!data || data.length === 0) {
-      return null;
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/search?format=json&q=${query}`,
+    {
+      headers: {
+        "User-Agent": "GroupUp-Student-Project",
+      },
     }
+  );
 
-    return {
-      latitude: parseFloat(data[0].lat),
-      longitude: parseFloat(data[0].lon),
-    };
+  const data = await response.json();
+
+  if (!data || data.length === 0) {
+    return null;
   }
 
-  function Clubs() {
+  return {
+    latitude: parseFloat(data[0].lat),
+    longitude: parseFloat(data[0].lon),
+  };
+}
+
+function Clubs() {
   const [clubs, setClubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+
   const storedUser = JSON.parse(sessionStorage.getItem("user"));
   const currentUserId = storedUser ? storedUser.id : null;
 
@@ -41,42 +42,47 @@ import Toast from '../components/toast';
   const [feedbackList, setFeedbackList] = useState([]);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
   const [feedbackClub, setFeedbackClub] = useState(null);
-  
+
   // Feedback form state
   const [feedbackForm, setFeedbackForm] = useState({
     rating: 5,
-    comment: ''
+    comment: "",
   });
 
-  // Haversine formula to calculate distance between two coordinates in miles
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 3959; // Earth's radius in miles
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c; // Distance in miles
-  };
-
-  // Search state
+  // Search & filter
   const [searchTerm, setSearchTerm] = useState("");
-
-  // Dropdown filter
   const [clubType, setClubType] = useState("all");
 
-  // Track which clubs the current user has joined
+  // Joined clubs
   const [joinedClubs, setJoinedClubs] = useState([]);
 
+  // User location
   const [userLocation, setUserLocation] = useState(null);
 
+  // Haversine formula
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 3959;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // 🔹 Fetch clubs & user info
   useEffect(() => {
     async function fetchClubs() {
       try {
+        setLoading(true);
         const token = sessionStorage.getItem("token");
-        
+
         const [clubsRes, userRes] = await Promise.all([
           fetch("http://localhost:5000/api/clubs"),
           fetch("http://localhost:5000/api/users/me", {
@@ -87,46 +93,23 @@ import Toast from '../components/toast';
         ]);
 
         const clubsData = await clubsRes.json();
+        setClubs(clubsData); // <-- RAW clubs only (no distance yet)
 
         if (userRes.ok) {
           const userData = await userRes.json();
-          const joined = userData.user.joined_clubs || [];
-          setJoinedClubs(joined);
+          setJoinedClubs(userData.user.joined_clubs || []);
 
-          // Store user location in state
           if (userData.user.latitude && userData.user.longitude) {
-            const userLoc = {
+            setUserLocation({
               latitude: userData.user.latitude,
-              longitude: userData.user.longitude
-            };
-            setUserLocation(userLoc);
-
-            // Calculate distances for each club
-            const clubsWithDistance = clubsData.map(club => ({
-              ...club,
-              distance: club.latitude && club.longitude
-                ? calculateDistance(
-                    userLoc.latitude,
-                    userLoc.longitude,
-                    club.latitude,
-                    club.longitude
-                  )
-                : 9999 // Large number for clubs without coordinates
-            }));
-
-            // Sort by distance (closest first)
-            clubsWithDistance.sort((a, b) => a.distance - b.distance);
-            setClubs(clubsWithDistance);
+              longitude: userData.user.longitude,
+            });
           } else {
-            // User has no location, just show clubs unsorted
-            setClubs(clubsData);
+            setUserLocation(null);
           }
         } else {
-          console.log("User not logged in - some features disabled");
-          setClubs(clubsData);
           setJoinedClubs([]);
         }
-
       } catch (error) {
         console.error("Failed to load clubs or user info:", error);
       } finally {
@@ -136,6 +119,28 @@ import Toast from '../components/toast';
 
     fetchClubs();
   }, []);
+
+  // 🔹 Recalculate distances whenever clubs or user location change
+  useEffect(() => {
+    if (!userLocation || clubs.length === 0) return;
+
+    const updatedClubs = clubs
+      .map((club) => ({
+        ...club,
+        distance:
+          club.latitude && club.longitude
+            ? calculateDistance(
+                userLocation.latitude,
+                userLocation.longitude,
+                club.latitude,
+                club.longitude
+              )
+            : 9999,
+      }))
+      .sort((a, b) => a.distance - b.distance);
+
+    setClubs(updatedClubs);
+  }, [userLocation]);
 
   const fetchClubFeedback = async (clubId) => {
     setLoadingFeedback(true);
